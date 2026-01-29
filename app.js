@@ -850,8 +850,302 @@ function submitInspection() {
 function viewInspection(id) {
     const inspection = mockInspections.find(i => i.id === id);
     if (inspection) {
-        showToast(`Ver inspección ${inspection.sku}`);
+        openInspectionDetail(inspection);
     }
+}
+
+function openInspectionDetail(inspection) {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('inspectionDetailModal');
+    if (existingModal) existingModal.remove();
+
+    const statusClass = inspection.status === 'completed' ? 'completed' :
+                       inspection.status === 'rejected' ? 'rejected' : 'pending';
+    const badgeClass = inspection.status === 'completed' ? 'badge-success' :
+                      inspection.status === 'rejected' ? 'badge-danger' : 'badge-warning';
+    const statusText = inspection.status === 'completed' ? 'Completada' :
+                      inspection.status === 'rejected' ? 'Rechazada' : 'Pendiente';
+
+    // Generate placeholder photos
+    const photoPlaceholders = [];
+    for (let i = 0; i < inspection.photos; i++) {
+        const colors = ['3B82F6', '10B981', 'F59E0B', 'EF4444', '8B5CF6', 'EC4899'];
+        const color = colors[i % colors.length];
+        photoPlaceholders.push(`https://placehold.co/200x200/${color}/white?text=Foto+${i + 1}`);
+    }
+
+    const modalHTML = `
+        <div class="modal-overlay active" id="inspectionDetailModal" onclick="closeDetailModal(event)">
+            <div class="modal" onclick="event.stopPropagation()" style="max-height: 95vh;">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;">
+                    <div>
+                        <h2 class="modal-title" style="color: white;">${inspection.sku}</h2>
+                        <p style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.25rem;">${inspection.productName}</p>
+                    </div>
+                    <button class="modal-close" onclick="closeDetailModal()" style="background: rgba(255,255,255,0.2); color: white;">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body" style="padding: 0;">
+                    <!-- Status Banner -->
+                    <div style="padding: 1rem 1.25rem; background: ${inspection.status === 'completed' ? 'var(--success-light)' : inspection.status === 'rejected' ? 'var(--danger-light)' : 'var(--warning-light)'}; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="inspection-badge ${badgeClass}" style="font-size: 0.8125rem; padding: 0.375rem 0.75rem;">
+                                ${inspection.status === 'completed' ? '<i data-lucide="check-circle" style="width:14px;height:14px;"></i>' :
+                                  inspection.status === 'rejected' ? '<i data-lucide="x-circle" style="width:14px;height:14px;"></i>' :
+                                  '<i data-lucide="clock" style="width:14px;height:14px;"></i>'}
+                                ${statusText}
+                            </span>
+                            ${inspection.synced ?
+                                '<span style="font-size: 0.75rem; color: var(--success); display: flex; align-items: center; gap: 0.25rem;"><i data-lucide="cloud" style="width:14px;height:14px;"></i> Sincronizado</span>' :
+                                '<span style="font-size: 0.75rem; color: var(--warning); display: flex; align-items: center; gap: 0.25rem;"><i data-lucide="cloud-off" style="width:14px;height:14px;"></i> Pendiente sync</span>'}
+                        </div>
+                        <span style="font-size: 0.75rem; color: var(--gray-600);">${formatDate(inspection.timestamp)}</span>
+                    </div>
+
+                    <!-- Info Grid -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div class="detail-item">
+                                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem;">
+                                    <i data-lucide="building-2" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                                    CEDIS
+                                </div>
+                                <div style="font-weight: 500;">${inspection.cedis}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem;">
+                                    <i data-lucide="clipboard-list" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                                    Tipo
+                                </div>
+                                <div style="font-weight: 500;">${inspection.type}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem;">
+                                    <i data-lucide="truck" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                                    Proveedor
+                                </div>
+                                <div style="font-weight: 500;">${inspection.provider}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div style="font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem;">
+                                    <i data-lucide="user" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                                    Inspector
+                                </div>
+                                <div style="font-weight: 500;">${inspection.inspector}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantities -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="package" style="width:16px;height:16px;"></i>
+                            Cantidades
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+                            <div style="text-align: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius);">
+                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${inspection.receivedQty}</div>
+                                <div style="font-size: 0.6875rem; color: var(--gray-500);">Recibidos</div>
+                            </div>
+                            <div style="text-align: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius);">
+                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${inspection.sampledQty}</div>
+                                <div style="font-size: 0.6875rem; color: var(--gray-500);">Muestreados</div>
+                            </div>
+                            <div style="text-align: center; padding: 0.75rem; background: ${inspection.rejectedQty > 0 ? 'var(--danger-light)' : 'var(--gray-50)'}; border-radius: var(--border-radius);">
+                                <div style="font-size: 1.25rem; font-weight: 700; color: ${inspection.rejectedQty > 0 ? 'var(--danger)' : 'var(--primary)'};">${inspection.rejectedQty}</div>
+                                <div style="font-size: 0.6875rem; color: var(--gray-500);">Rechazados</div>
+                            </div>
+                            <div style="text-align: center; padding: 0.75rem; background: ${inspection.findingsQty > 0 ? 'var(--warning-light)' : 'var(--gray-50)'}; border-radius: var(--border-radius);">
+                                <div style="font-size: 1.25rem; font-weight: 700; color: ${inspection.findingsQty > 0 ? 'var(--warning)' : 'var(--primary)'};">${inspection.findingsQty}</div>
+                                <div style="font-size: 0.6875rem; color: var(--gray-500);">Con hallazgos</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Findings -->
+                    ${inspection.findings && inspection.findings.length > 0 ? `
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="alert-triangle" style="width:16px;height:16px;color:var(--warning);"></i>
+                            Hallazgos (${inspection.findings.length})
+                        </h3>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${inspection.findings.map(f => `
+                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.75rem; background: var(--warning-light); color: var(--warning); border-radius: 9999px; font-size: 0.8125rem; font-weight: 500;">
+                                    <i data-lucide="alert-circle" style="width:14px;height:14px;"></i>
+                                    ${f}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Photos -->
+                    ${inspection.photos > 0 ? `
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="camera" style="width:16px;height:16px;"></i>
+                            Evidencia Fotográfica (${inspection.photos})
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+                            ${photoPlaceholders.map((url, i) => `
+                                <div style="aspect-ratio: 1; border-radius: var(--border-radius); overflow: hidden; cursor: pointer;" onclick="showPhotoFullscreen('${url}', ${i + 1})">
+                                    <img src="${url}" alt="Foto ${i + 1}" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Timeline -->
+                    <div style="padding: 1.25rem;">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="history" style="width:16px;height:16px;"></i>
+                            Historial
+                        </h3>
+                        <div class="timeline">
+                            ${generateTimeline(inspection)}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="flex-wrap: wrap; gap: 0.5rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="downloadReport(${inspection.id})" style="flex: 1;">
+                        <i data-lucide="download" style="width:16px;height:16px;"></i>
+                        Descargar PDF
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="shareInspection(${inspection.id})" style="flex: 1;">
+                        <i data-lucide="share-2" style="width:16px;height:16px;"></i>
+                        Compartir
+                    </button>
+                    ${inspection.status === 'pending' ? `
+                    <button class="btn btn-primary btn-sm" onclick="editInspection(${inspection.id})" style="flex: 1;">
+                        <i data-lucide="edit" style="width:16px;height:16px;"></i>
+                        Editar
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    if (window.lucide) lucide.createIcons();
+}
+
+function generateTimeline(inspection) {
+    const events = [
+        {
+            icon: 'clipboard-check',
+            title: 'Inspección creada',
+            description: `Por ${inspection.inspector}`,
+            time: inspection.timestamp,
+            color: 'var(--primary)'
+        }
+    ];
+
+    if (inspection.findings && inspection.findings.length > 0) {
+        events.push({
+            icon: 'alert-triangle',
+            title: `${inspection.findings.length} hallazgos registrados`,
+            description: inspection.findings.slice(0, 2).join(', ') + (inspection.findings.length > 2 ? '...' : ''),
+            time: new Date(inspection.timestamp.getTime() + 60000),
+            color: 'var(--warning)'
+        });
+    }
+
+    if (inspection.photos > 0) {
+        events.push({
+            icon: 'camera',
+            title: `${inspection.photos} fotos adjuntadas`,
+            description: 'Evidencia fotográfica',
+            time: new Date(inspection.timestamp.getTime() + 120000),
+            color: 'var(--primary)'
+        });
+    }
+
+    if (inspection.synced) {
+        events.push({
+            icon: 'cloud',
+            title: 'Sincronizado con servidor',
+            description: 'Datos respaldados',
+            time: new Date(inspection.timestamp.getTime() + 180000),
+            color: 'var(--success)'
+        });
+    }
+
+    if (inspection.status === 'completed') {
+        events.push({
+            icon: 'check-circle',
+            title: 'Inspección completada',
+            description: 'Proceso finalizado',
+            time: new Date(inspection.timestamp.getTime() + 240000),
+            color: 'var(--success)'
+        });
+    } else if (inspection.status === 'rejected') {
+        events.push({
+            icon: 'x-circle',
+            title: 'Lote rechazado',
+            description: 'No cumple criterios de calidad',
+            time: new Date(inspection.timestamp.getTime() + 240000),
+            color: 'var(--danger)'
+        });
+    }
+
+    return events.map((event, index) => `
+        <div style="display: flex; gap: 1rem; ${index < events.length - 1 ? 'padding-bottom: 1rem;' : ''}">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: ${event.color}15; color: ${event.color}; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="${event.icon}" style="width:16px;height:16px;"></i>
+                </div>
+                ${index < events.length - 1 ? '<div style="flex: 1; width: 2px; background: var(--gray-200); margin-top: 0.5rem;"></div>' : ''}
+            </div>
+            <div style="flex: 1; padding-bottom: 0.5rem;">
+                <div style="font-weight: 500; font-size: 0.875rem;">${event.title}</div>
+                <div style="font-size: 0.75rem; color: var(--gray-500);">${event.description}</div>
+                <div style="font-size: 0.6875rem; color: var(--gray-400); margin-top: 0.25rem;">${formatDate(event.time)}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function closeDetailModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('inspectionDetailModal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+function showPhotoFullscreen(url, index) {
+    showToast(`Vista completa: Foto ${index}`);
+    // In a real app, this would open a fullscreen image viewer
+}
+
+function downloadReport(id) {
+    showToast('Generando PDF...', 'success');
+    // In a real app, this would generate and download a PDF
+}
+
+function shareInspection(id) {
+    const inspection = mockInspections.find(i => i.id === id);
+    if (inspection && navigator.share) {
+        navigator.share({
+            title: `Inspección ${inspection.sku}`,
+            text: `Inspección de ${inspection.productName} - ${inspection.status}`,
+            url: window.location.href
+        });
+    } else {
+        showToast('Link copiado al portapapeles', 'success');
+    }
+}
+
+function editInspection(id) {
+    closeDetailModal();
+    showToast('Función de edición (próximamente)');
 }
 
 function viewProvider(id) {
@@ -891,6 +1185,7 @@ window.handleLogout = handleLogout;
 window.navigate = navigate;
 window.openNewInspection = openNewInspection;
 window.closeModal = closeModal;
+window.closeDetailModal = closeDetailModal;
 window.adjustQty = adjustQty;
 window.capturePhoto = capturePhoto;
 window.saveDraft = saveDraft;
@@ -898,3 +1193,7 @@ window.submitInspection = submitInspection;
 window.viewInspection = viewInspection;
 window.viewProvider = viewProvider;
 window.showNotifications = showNotifications;
+window.showPhotoFullscreen = showPhotoFullscreen;
+window.downloadReport = downloadReport;
+window.shareInspection = shareInspection;
+window.editInspection = editInspection;

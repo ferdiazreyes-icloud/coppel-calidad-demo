@@ -5,7 +5,8 @@ const state = {
     inspections: [],
     providers: [],
     isOnline: navigator.onLine,
-    pendingSync: 0
+    pendingSync: 0,
+    capturedPhotos: [] // Photos captured during current inspection form
 };
 
 // ===== MOCK DATA =====
@@ -679,13 +680,10 @@ function renderInspectionModal() {
 
                         <div class="form-group">
                             <label class="form-label">Evidencia Fotográfica</label>
-                            <div class="photo-grid">
-                                <div class="photo-item photo-add" onclick="capturePhoto()">
-                                    <i data-lucide="camera" style="width:24px;height:24px;"></i>
-                                    <span>Agregar</span>
-                                </div>
+                            <div class="photo-grid" id="photoGrid">
+                                ${renderPhotoGrid()}
                             </div>
-                            <p class="form-hint">Mínimo 3 fotos si hay hallazgos</p>
+                            <p class="form-hint" id="photoHint">Mínimo 3 fotos si hay hallazgos</p>
                         </div>
 
                         <div class="form-group">
@@ -739,6 +737,9 @@ function navigate(page) {
 }
 
 function openNewInspection() {
+    // Reset captured photos for new inspection
+    state.capturedPhotos = [];
+
     const modal = document.getElementById('inspectionModal');
     if (!modal) {
         document.body.insertAdjacentHTML('beforeend', renderInspectionModal());
@@ -766,6 +767,8 @@ function closeModal() {
         modal.classList.remove('active');
         setTimeout(() => modal.remove(), 300);
     }
+    // Clear captured photos when closing
+    state.capturedPhotos = [];
 }
 
 function adjustQty(field, delta) {
@@ -782,9 +785,259 @@ function adjustQty(field, delta) {
     }
 }
 
+// ===== PHOTO CAPTURE SIMULATION =====
+function renderPhotoGrid() {
+    const photos = state.capturedPhotos.map((photo, index) => `
+        <div class="photo-item photo-captured" style="position: relative;">
+            <img src="${photo.url}" alt="Foto ${index + 1}" style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--border-radius);">
+            <button type="button" class="photo-delete-btn" onclick="deletePhoto(${index})" title="Eliminar foto">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+            <div class="photo-number">${index + 1}</div>
+        </div>
+    `).join('');
+
+    const addButton = state.capturedPhotos.length < 10 ? `
+        <div class="photo-item photo-add" onclick="capturePhoto()">
+            <i data-lucide="camera" style="width:24px;height:24px;"></i>
+            <span>Agregar</span>
+        </div>
+    ` : '';
+
+    return photos + addButton;
+}
+
+function updatePhotoGrid() {
+    const photoGrid = document.getElementById('photoGrid');
+    const photoHint = document.getElementById('photoHint');
+
+    if (photoGrid) {
+        photoGrid.innerHTML = renderPhotoGrid();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    if (photoHint) {
+        const count = state.capturedPhotos.length;
+        if (count === 0) {
+            photoHint.innerHTML = 'Mínimo 3 fotos si hay hallazgos';
+            photoHint.style.color = '';
+        } else if (count < 3) {
+            photoHint.innerHTML = `<i data-lucide="alert-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>${count} foto${count > 1 ? 's' : ''} - Faltan ${3 - count} para completar el mínimo`;
+            photoHint.style.color = 'var(--warning)';
+        } else {
+            photoHint.innerHTML = `<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>${count} foto${count > 1 ? 's' : ''} capturada${count > 1 ? 's' : ''}`;
+            photoHint.style.color = 'var(--success)';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
 function capturePhoto() {
-    showToast('Función de cámara (demo)');
-    // In a real app, this would open the camera
+    if (state.capturedPhotos.length >= 10) {
+        showToast('Máximo 10 fotos por inspección', 'error');
+        return;
+    }
+
+    // Show camera simulation modal
+    showCameraModal();
+}
+
+function showCameraModal() {
+    const existingModal = document.getElementById('cameraModal');
+    if (existingModal) existingModal.remove();
+
+    const cameraModalHTML = `
+        <div class="modal-overlay active" id="cameraModal" style="z-index: 1100;">
+            <div class="modal" style="max-width: 400px;">
+                <div class="modal-header" style="background: #000; color: white;">
+                    <h2 class="modal-title" style="color: white;">
+                        <i data-lucide="camera" style="width:20px;height:20px;display:inline;vertical-align:middle;margin-right:8px;"></i>
+                        Cámara
+                    </h2>
+                    <button class="modal-close" onclick="closeCameraModal()" style="background: rgba(255,255,255,0.2); color: white;">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding: 0; background: #1a1a1a;">
+                    <!-- Camera viewfinder simulation -->
+                    <div id="cameraViewfinder" style="aspect-ratio: 4/3; background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                        <!-- Scanning animation -->
+                        <div class="camera-scan-line"></div>
+
+                        <!-- Center focus indicator -->
+                        <div style="width: 80px; height: 80px; border: 2px solid rgba(255,255,255,0.5); border-radius: 8px; position: relative;">
+                            <div style="position: absolute; top: -2px; left: -2px; width: 20px; height: 20px; border-top: 3px solid var(--accent); border-left: 3px solid var(--accent);"></div>
+                            <div style="position: absolute; top: -2px; right: -2px; width: 20px; height: 20px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent);"></div>
+                            <div style="position: absolute; bottom: -2px; left: -2px; width: 20px; height: 20px; border-bottom: 3px solid var(--accent); border-left: 3px solid var(--accent);"></div>
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 20px; height: 20px; border-bottom: 3px solid var(--accent); border-right: 3px solid var(--accent);"></div>
+                        </div>
+
+                        <!-- Camera info overlay -->
+                        <div style="position: absolute; top: 12px; left: 12px; color: white; font-size: 0.75rem; opacity: 0.7;">
+                            <div>DEMO MODE</div>
+                        </div>
+                        <div style="position: absolute; top: 12px; right: 12px; color: white; font-size: 0.75rem; opacity: 0.7;">
+                            <div id="cameraTime">${new Date().toLocaleTimeString('es-MX')}</div>
+                        </div>
+                        <div style="position: absolute; bottom: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; color: white; font-size: 0.6875rem; opacity: 0.7;">
+                            <span>Foto ${state.capturedPhotos.length + 1}/10</span>
+                            <span>Enfoque automático</span>
+                        </div>
+                    </div>
+
+                    <!-- Preview section (hidden initially) -->
+                    <div id="photoPreview" style="display: none; aspect-ratio: 4/3; position: relative;">
+                        <img id="previewImage" src="" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 12px; right: 12px; background: var(--success); color: white; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">
+                            <i data-lucide="check" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                            Capturada
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background: #000; border-top: none; justify-content: center; padding: 1.5rem;">
+                    <!-- Capture button -->
+                    <div id="captureControls">
+                        <button type="button" class="camera-capture-btn" onclick="simulateCapture()">
+                            <div class="camera-capture-btn-inner"></div>
+                        </button>
+                        <p style="color: rgba(255,255,255,0.6); font-size: 0.75rem; text-align: center; margin-top: 0.75rem;">Toca para capturar</p>
+                    </div>
+
+                    <!-- After capture controls (hidden initially) -->
+                    <div id="afterCaptureControls" style="display: none; width: 100%;">
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn btn-secondary" style="flex: 1; background: rgba(255,255,255,0.1); color: white; border: none;" onclick="retakePhoto()">
+                                <i data-lucide="refresh-cw" style="width:18px;height:18px;"></i>
+                                Repetir
+                            </button>
+                            <button type="button" class="btn btn-primary" style="flex: 1;" onclick="confirmPhoto()">
+                                <i data-lucide="check" style="width:18px;height:18px;"></i>
+                                Usar foto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', cameraModalHTML);
+    if (window.lucide) lucide.createIcons();
+
+    // Update time every second
+    const timeInterval = setInterval(() => {
+        const timeEl = document.getElementById('cameraTime');
+        if (timeEl) {
+            timeEl.textContent = new Date().toLocaleTimeString('es-MX');
+        } else {
+            clearInterval(timeInterval);
+        }
+    }, 1000);
+}
+
+function simulateCapture() {
+    const viewfinder = document.getElementById('cameraViewfinder');
+    const preview = document.getElementById('photoPreview');
+    const previewImg = document.getElementById('previewImage');
+    const captureControls = document.getElementById('captureControls');
+    const afterControls = document.getElementById('afterCaptureControls');
+
+    // Flash effect
+    viewfinder.style.transition = 'background 0.1s';
+    viewfinder.style.background = 'white';
+
+    // Camera shutter sound simulation (visual feedback)
+    setTimeout(() => {
+        viewfinder.style.background = '';
+
+        // Generate simulated photo (placeholder with furniture-related content)
+        const photoTypes = [
+            { text: 'Vista+General', color: '3B82F6' },
+            { text: 'Detalle+Producto', color: '10B981' },
+            { text: 'Etiqueta', color: 'F59E0B' },
+            { text: 'Empaque', color: '8B5CF6' },
+            { text: 'Defecto', color: 'EF4444' },
+            { text: 'Acabado', color: 'EC4899' },
+            { text: 'Estructura', color: '06B6D4' },
+            { text: 'Ensamble', color: '84CC16' }
+        ];
+
+        const photoType = photoTypes[state.capturedPhotos.length % photoTypes.length];
+        const timestamp = Date.now();
+        const photoUrl = `https://placehold.co/800x600/${photoType.color}/white?text=${photoType.text}%0A${new Date().toLocaleTimeString('es-MX')}`;
+
+        // Store temporarily for confirmation
+        window.pendingPhoto = {
+            url: photoUrl,
+            type: photoType.text.replace('+', ' '),
+            timestamp: timestamp
+        };
+
+        // Show preview
+        previewImg.src = photoUrl;
+        viewfinder.style.display = 'none';
+        preview.style.display = 'block';
+        captureControls.style.display = 'none';
+        afterControls.style.display = 'block';
+
+        if (window.lucide) lucide.createIcons();
+    }, 150);
+}
+
+function retakePhoto() {
+    const viewfinder = document.getElementById('cameraViewfinder');
+    const preview = document.getElementById('photoPreview');
+    const captureControls = document.getElementById('captureControls');
+    const afterControls = document.getElementById('afterCaptureControls');
+
+    window.pendingPhoto = null;
+
+    viewfinder.style.display = 'flex';
+    preview.style.display = 'none';
+    captureControls.style.display = 'block';
+    afterControls.style.display = 'none';
+}
+
+function confirmPhoto() {
+    if (window.pendingPhoto) {
+        state.capturedPhotos.push(window.pendingPhoto);
+        window.pendingPhoto = null;
+
+        updatePhotoGrid();
+        showToast(`Foto ${state.capturedPhotos.length} guardada`, 'success');
+
+        // Check if user wants to add more photos
+        if (state.capturedPhotos.length < 10) {
+            // Reset to camera view for next photo
+            retakePhoto();
+
+            // Update photo count in viewfinder
+            const countEl = document.querySelector('#cameraViewfinder span');
+            if (countEl) {
+                countEl.textContent = `Foto ${state.capturedPhotos.length + 1}/10`;
+            }
+        } else {
+            closeCameraModal();
+            showToast('Máximo de fotos alcanzado', 'success');
+        }
+    }
+}
+
+function deletePhoto(index) {
+    if (index >= 0 && index < state.capturedPhotos.length) {
+        state.capturedPhotos.splice(index, 1);
+        updatePhotoGrid();
+        showToast('Foto eliminada');
+    }
+}
+
+function closeCameraModal() {
+    const modal = document.getElementById('cameraModal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    }
+    window.pendingPhoto = null;
 }
 
 function saveDraft() {
@@ -816,6 +1069,13 @@ function submitInspection() {
         return;
     }
 
+    // Validate photos if there are findings
+    const selectedFindings = formData.getAll('findings');
+    if (selectedFindings.length > 0 && state.capturedPhotos.length < 3) {
+        showToast('Se requieren mínimo 3 fotos cuando hay hallazgos', 'error');
+        return;
+    }
+
     // Create inspection
     const inspection = {
         id: Date.now(),
@@ -830,8 +1090,9 @@ function submitInspection() {
         sampledQty: sampledQty,
         rejectedQty: parseInt(formData.get('rejectedQty')) || 0,
         findingsQty: parseInt(formData.get('findingsQty')) || 0,
-        findings: formData.getAll('findings'),
-        photos: 0,
+        findings: selectedFindings,
+        photos: state.capturedPhotos.length,
+        photoUrls: state.capturedPhotos.map(p => p.url),
         timestamp: new Date(),
         synced: state.isOnline
     };
@@ -866,12 +1127,16 @@ function openInspectionDetail(inspection) {
     const statusText = inspection.status === 'completed' ? 'Completada' :
                       inspection.status === 'rejected' ? 'Rechazada' : 'Pendiente';
 
-    // Generate placeholder photos
-    const photoPlaceholders = [];
-    for (let i = 0; i < inspection.photos; i++) {
-        const colors = ['3B82F6', '10B981', 'F59E0B', 'EF4444', '8B5CF6', 'EC4899'];
-        const color = colors[i % colors.length];
-        photoPlaceholders.push(`https://placehold.co/200x200/${color}/white?text=Foto+${i + 1}`);
+    // Use real photo URLs if available, otherwise generate placeholders
+    let photoPlaceholders = [];
+    if (inspection.photoUrls && inspection.photoUrls.length > 0) {
+        photoPlaceholders = inspection.photoUrls;
+    } else {
+        for (let i = 0; i < inspection.photos; i++) {
+            const colors = ['3B82F6', '10B981', 'F59E0B', 'EF4444', '8B5CF6', 'EC4899'];
+            const color = colors[i % colors.length];
+            photoPlaceholders.push(`https://placehold.co/200x200/${color}/white?text=Foto+${i + 1}`);
+        }
     }
 
     const modalHTML = `
@@ -1197,3 +1462,8 @@ window.showPhotoFullscreen = showPhotoFullscreen;
 window.downloadReport = downloadReport;
 window.shareInspection = shareInspection;
 window.editInspection = editInspection;
+window.deletePhoto = deletePhoto;
+window.closeCameraModal = closeCameraModal;
+window.simulateCapture = simulateCapture;
+window.retakePhoto = retakePhoto;
+window.confirmPhoto = confirmPhoto;

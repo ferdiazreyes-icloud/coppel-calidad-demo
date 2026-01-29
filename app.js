@@ -1,0 +1,900 @@
+// ===== STATE MANAGEMENT =====
+const state = {
+    currentPage: 'login',
+    user: null,
+    inspections: [],
+    providers: [],
+    isOnline: navigator.onLine,
+    pendingSync: 0
+};
+
+// ===== MOCK DATA =====
+const mockInspections = [
+    {
+        id: 1,
+        sku: 'MUE-2847593',
+        productName: 'Sala Modular 3 Piezas - Gris Oxford',
+        provider: 'Muebles del Norte SA',
+        cedis: 'CEDIS Guadalajara',
+        inspector: 'Juan Pérez',
+        type: 'Recepción',
+        status: 'completed',
+        receivedQty: 50,
+        sampledQty: 10,
+        rejectedQty: 1,
+        findingsQty: 2,
+        findings: ['Daño en empaque', 'Rayón en superficie'],
+        photos: 3,
+        timestamp: new Date(Date.now() - 1000 * 60 * 30),
+        synced: true
+    },
+    {
+        id: 2,
+        sku: 'MUE-1938472',
+        productName: 'Comedor 6 Sillas - Madera Natural',
+        provider: 'Carpintería Moderna',
+        cedis: 'CEDIS Monterrey',
+        inspector: 'Juan Pérez',
+        type: 'Recepción',
+        status: 'pending',
+        receivedQty: 25,
+        sampledQty: 5,
+        rejectedQty: 0,
+        findingsQty: 0,
+        findings: [],
+        photos: 0,
+        timestamp: new Date(Date.now() - 1000 * 60 * 15),
+        synced: false
+    },
+    {
+        id: 3,
+        sku: 'MUE-7462918',
+        productName: 'Recámara King Size - Cerezo',
+        provider: 'Muebles Premium MX',
+        cedis: 'CEDIS CDMX Norte',
+        inspector: 'María González',
+        type: 'Almacenaje',
+        status: 'rejected',
+        receivedQty: 30,
+        sampledQty: 8,
+        rejectedQty: 4,
+        findingsQty: 6,
+        findings: ['Piezas faltantes', 'Daño estructural', 'Humedad'],
+        photos: 8,
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        synced: true
+    }
+];
+
+const mockProviders = [
+    { id: 1, name: 'Muebles del Norte SA', code: 'PRV-001', score: 92, trend: 'up', inspections: 145, defectRate: 2.1, riskLevel: 'low' },
+    { id: 2, name: 'Carpintería Moderna', code: 'PRV-002', score: 78, trend: 'down', inspections: 89, defectRate: 8.5, riskLevel: 'medium' },
+    { id: 3, name: 'Muebles Premium MX', code: 'PRV-003', score: 45, trend: 'down', inspections: 67, defectRate: 18.2, riskLevel: 'high' },
+    { id: 4, name: 'Diseños Hogar SA', code: 'PRV-004', score: 88, trend: 'up', inspections: 203, defectRate: 3.8, riskLevel: 'low' },
+    { id: 5, name: 'Fábrica de Muebles MX', code: 'PRV-005', score: 71, trend: 'stable', inspections: 112, defectRate: 9.1, riskLevel: 'medium' }
+];
+
+const mockKPIs = {
+    inspectionsToday: 24,
+    inspectionsChange: 12,
+    productsInspected: 847,
+    productsChange: 8,
+    defectRate: 4.2,
+    defectChange: -0.8,
+    criticalFindings: 3,
+    criticalChange: 1
+};
+
+const findingCategories = [
+    'Daño en empaque',
+    'Rayón en superficie',
+    'Pieza faltante',
+    'Daño estructural',
+    'Manchas/Suciedad',
+    'Color incorrecto',
+    'Dimensiones incorrectas',
+    'Humedad/Mojado',
+    'Tornillería incompleta',
+    'Manual faltante'
+];
+
+const cedisList = [
+    'CEDIS Guadalajara',
+    'CEDIS Monterrey',
+    'CEDIS CDMX Norte',
+    'CEDIS CDMX Sur',
+    'CEDIS Puebla',
+    'CEDIS Tijuana',
+    'CEDIS Mérida'
+];
+
+const inspectionTypes = [
+    'Recepción',
+    'Almacenaje',
+    'Transferencia',
+    'Embarque',
+    'Movimiento'
+];
+
+// ===== HELPER FUNCTIONS =====
+function formatTime(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+
+    if (minutes < 1) return 'Ahora';
+    if (minutes < 60) return `Hace ${minutes} min`;
+    if (hours < 24) return `Hace ${hours}h`;
+    return date.toLocaleDateString('es-MX');
+}
+
+function formatDate(date) {
+    return date.toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function showToast(message, type = 'default') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ===== RENDER FUNCTIONS =====
+function renderApp() {
+    const app = document.getElementById('app');
+
+    switch(state.currentPage) {
+        case 'login':
+            app.innerHTML = renderLoginPage();
+            break;
+        case 'dashboard':
+            app.innerHTML = renderDashboardPage();
+            break;
+        case 'inspections':
+            app.innerHTML = renderInspectionsPage();
+            break;
+        case 'providers':
+            app.innerHTML = renderProvidersPage();
+            break;
+        case 'profile':
+            app.innerHTML = renderProfilePage();
+            break;
+        default:
+            app.innerHTML = renderDashboardPage();
+    }
+
+    // Initialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+
+    attachEventListeners();
+}
+
+function renderNavbar() {
+    return `
+        <nav class="navbar">
+            <div class="navbar-content">
+                <div class="logo">
+                    <div class="logo-dots">
+                        <span class="logo-dot"></span>
+                        <span class="logo-dot"></span>
+                        <span class="logo-dot"></span>
+                    </div>
+                    <span>Coppel</span>
+                </div>
+                <div class="navbar-actions">
+                    <div class="sync-status">
+                        <span class="sync-dot ${state.isOnline ? '' : 'offline'}"></span>
+                        <span>${state.isOnline ? 'Conectado' : 'Sin conexión'}</span>
+                        ${state.pendingSync > 0 ? `<span>(${state.pendingSync} pendientes)</span>` : ''}
+                    </div>
+                    <button class="navbar-icon" onclick="showNotifications()">
+                        <i data-lucide="bell" style="width:20px;height:20px;"></i>
+                    </button>
+                    <div class="user-avatar">${state.user?.initials || 'JP'}</div>
+                </div>
+            </div>
+        </nav>
+    `;
+}
+
+function renderBottomNav() {
+    return `
+        <nav class="bottom-nav">
+            <button class="bottom-nav-item ${state.currentPage === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
+                <i data-lucide="layout-dashboard" style="width:24px;height:24px;"></i>
+                <span>Inicio</span>
+            </button>
+            <button class="bottom-nav-item ${state.currentPage === 'inspections' ? 'active' : ''}" onclick="navigate('inspections')">
+                <i data-lucide="clipboard-check" style="width:24px;height:24px;"></i>
+                <span>Inspecciones</span>
+            </button>
+            <button class="bottom-nav-item ${state.currentPage === 'providers' ? 'active' : ''}" onclick="navigate('providers')">
+                <i data-lucide="truck" style="width:24px;height:24px;"></i>
+                <span>Proveedores</span>
+            </button>
+            <button class="bottom-nav-item ${state.currentPage === 'profile' ? 'active' : ''}" onclick="navigate('profile')">
+                <i data-lucide="user" style="width:24px;height:24px;"></i>
+                <span>Perfil</span>
+            </button>
+        </nav>
+    `;
+}
+
+function renderLoginPage() {
+    return `
+        <div class="login-page">
+            <div class="login-header">
+                <div class="login-logo">
+                    <div class="logo-dots">
+                        <span class="logo-dot"></span>
+                        <span class="logo-dot"></span>
+                        <span class="logo-dot"></span>
+                    </div>
+                    <span>Coppel</span>
+                </div>
+                <p class="login-subtitle">Sistema de Inspección de Calidad</p>
+            </div>
+            <div class="login-content">
+                <div class="login-card">
+                    <h1 class="login-title">Iniciar Sesión</h1>
+                    <form onsubmit="handleLogin(event)">
+                        <div class="form-group">
+                            <label class="form-label required">Correo electrónico</label>
+                            <input type="email" class="form-input" placeholder="tu.correo@coppel.com" value="inspector@coppel.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Contraseña</label>
+                            <input type="password" class="form-input" placeholder="••••••••" value="demo123" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">CEDIS</label>
+                            <select class="form-select">
+                                ${cedisList.map(c => `<option>${c}</option>`).join('')}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">
+                            Ingresar
+                            <i data-lucide="arrow-right" style="width:20px;height:20px;"></i>
+                        </button>
+                    </form>
+                    <p class="text-center text-gray-500 text-sm mt-4">
+                        ¿Problemas para ingresar? Contacta a soporte
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderDashboardPage() {
+    return `
+        ${renderNavbar()}
+        <main class="page">
+            <div class="page-header">
+                <h1 class="page-title">Buenos días, ${state.user?.name || 'Inspector'}</h1>
+                <p class="page-subtitle">${new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon blue">
+                        <i data-lucide="clipboard-check" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="kpi-value">${mockKPIs.inspectionsToday}</div>
+                    <div class="kpi-label">Inspecciones hoy</div>
+                    <div class="kpi-change up">
+                        <i data-lucide="trending-up" style="width:14px;height:14px;"></i>
+                        +${mockKPIs.inspectionsChange}% vs ayer
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon green">
+                        <i data-lucide="package-check" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="kpi-value">${mockKPIs.productsInspected}</div>
+                    <div class="kpi-label">Productos revisados</div>
+                    <div class="kpi-change up">
+                        <i data-lucide="trending-up" style="width:14px;height:14px;"></i>
+                        +${mockKPIs.productsChange}%
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon yellow">
+                        <i data-lucide="percent" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="kpi-value">${mockKPIs.defectRate}%</div>
+                    <div class="kpi-label">Tasa de defectos</div>
+                    <div class="kpi-change up">
+                        <i data-lucide="trending-down" style="width:14px;height:14px;"></i>
+                        ${mockKPIs.defectChange}%
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon red">
+                        <i data-lucide="alert-triangle" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="kpi-value">${mockKPIs.criticalFindings}</div>
+                    <div class="kpi-label">Hallazgos críticos</div>
+                    <div class="kpi-change down">
+                        <i data-lucide="trending-up" style="width:14px;height:14px;"></i>
+                        +${mockKPIs.criticalChange}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i data-lucide="bar-chart-3" style="width:18px;height:18px;"></i>
+                    Inspecciones últimos 7 días
+                </div>
+                <div class="chart-container">
+                    ${renderBarChart([18, 24, 21, 28, 19, 24, 22], ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'])}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i data-lucide="clock" style="width:18px;height:18px;"></i>
+                        Inspecciones recientes
+                    </div>
+                    <button class="btn btn-sm btn-secondary" onclick="navigate('inspections')">Ver todas</button>
+                </div>
+                <div class="card-body" style="padding: 0.75rem;">
+                    <div class="inspection-list">
+                        ${mockInspections.slice(0, 3).map(renderInspectionItem).join('')}
+                    </div>
+                </div>
+            </div>
+        </main>
+        ${renderBottomNav()}
+        <button class="fab" onclick="openNewInspection()">
+            <i data-lucide="plus" style="width:24px;height:24px;"></i>
+        </button>
+    `;
+}
+
+function renderBarChart(values, labels) {
+    const max = Math.max(...values);
+    return values.map((v, i) => `
+        <div class="chart-bar" style="height: ${(v / max) * 100}%">
+            <span class="chart-bar-label">${labels[i]}</span>
+        </div>
+    `).join('');
+}
+
+function renderInspectionItem(inspection) {
+    const statusClass = inspection.status === 'completed' ? 'completed' :
+                       inspection.status === 'rejected' ? 'rejected' : 'pending';
+    const badgeClass = inspection.status === 'completed' ? 'badge-success' :
+                      inspection.status === 'rejected' ? 'badge-danger' : 'badge-warning';
+    const statusText = inspection.status === 'completed' ? 'Completada' :
+                      inspection.status === 'rejected' ? 'Rechazada' : 'Pendiente';
+
+    return `
+        <div class="inspection-item" onclick="viewInspection(${inspection.id})">
+            <div class="inspection-status ${statusClass}"></div>
+            <div class="inspection-content">
+                <div class="inspection-header">
+                    <span class="inspection-sku">${inspection.sku}</span>
+                    <span class="inspection-time">${formatTime(inspection.timestamp)}</span>
+                </div>
+                <div class="inspection-details">${inspection.productName}</div>
+                <div class="inspection-meta">
+                    <span>${inspection.cedis}</span>
+                    <span>•</span>
+                    <span>${inspection.type}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                    <span class="inspection-badge ${badgeClass}">${statusText}</span>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem; color: var(--gray-500);">
+                        ${inspection.findingsQty > 0 ? `
+                            <span style="display: flex; align-items: center; gap: 0.25rem;">
+                                <i data-lucide="alert-circle" style="width:14px;height:14px;color:var(--warning);"></i>
+                                ${inspection.findingsQty} hallazgos
+                            </span>
+                        ` : ''}
+                        ${inspection.photos > 0 ? `
+                            <span style="display: flex; align-items: center; gap: 0.25rem;">
+                                <i data-lucide="camera" style="width:14px;height:14px;"></i>
+                                ${inspection.photos}
+                            </span>
+                        ` : ''}
+                        ${!inspection.synced ? `
+                            <span style="display: flex; align-items: center; gap: 0.25rem; color: var(--warning);">
+                                <i data-lucide="cloud-off" style="width:14px;height:14px;"></i>
+                                Sin sync
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderInspectionsPage() {
+    return `
+        ${renderNavbar()}
+        <main class="page">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="page-title">Inspecciones</h1>
+                    <p class="page-subtitle">${mockInspections.length} inspecciones registradas</p>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openNewInspection()">
+                    <i data-lucide="plus" style="width:18px;height:18px;"></i>
+                    Nueva
+                </button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active">Todas</button>
+                <button class="tab">Pendientes</button>
+                <button class="tab">Completadas</button>
+                <button class="tab">Rechazadas</button>
+            </div>
+
+            <div class="inspection-list">
+                ${mockInspections.map(renderInspectionItem).join('')}
+            </div>
+        </main>
+        ${renderBottomNav()}
+        <button class="fab" onclick="openNewInspection()">
+            <i data-lucide="plus" style="width:24px;height:24px;"></i>
+        </button>
+    `;
+}
+
+function renderProvidersPage() {
+    return `
+        ${renderNavbar()}
+        <main class="page">
+            <div class="page-header">
+                <h1 class="page-title">Proveedores</h1>
+                <p class="page-subtitle">Desempeño y cumplimiento</p>
+            </div>
+
+            <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1.5rem;">
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--success);">3</div>
+                    <div class="kpi-label">Riesgo Bajo</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--warning);">2</div>
+                    <div class="kpi-label">Riesgo Medio</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--danger);">1</div>
+                    <div class="kpi-label">Riesgo Alto</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i data-lucide="list" style="width:18px;height:18px;"></i>
+                    Lista de Proveedores
+                </div>
+                <div class="provider-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Proveedor</th>
+                                <th>Puntaje</th>
+                                <th>Defectos</th>
+                                <th>Riesgo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mockProviders.map(p => `
+                                <tr onclick="viewProvider(${p.id})">
+                                    <td>
+                                        <div class="provider-name">${p.name}</div>
+                                        <div class="text-xs text-gray-500">${p.code} • ${p.inspections} inspecciones</div>
+                                    </td>
+                                    <td>
+                                        <span class="provider-score" style="color: ${p.score >= 80 ? 'var(--success)' : p.score >= 60 ? 'var(--warning)' : 'var(--danger)'}">
+                                            ${p.score}
+                                            ${p.trend === 'up' ? '<i data-lucide="trending-up" style="width:14px;height:14px;"></i>' :
+                                              p.trend === 'down' ? '<i data-lucide="trending-down" style="width:14px;height:14px;"></i>' : ''}
+                                        </span>
+                                    </td>
+                                    <td>${p.defectRate}%</td>
+                                    <td>
+                                        <span class="risk-badge risk-${p.riskLevel}">
+                                            ${p.riskLevel === 'low' ? 'BAJO' : p.riskLevel === 'medium' ? 'MEDIO' : 'ALTO'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+        ${renderBottomNav()}
+    `;
+}
+
+function renderProfilePage() {
+    return `
+        ${renderNavbar()}
+        <main class="page">
+            <div class="card mb-4">
+                <div class="card-body" style="text-align: center; padding: 2rem;">
+                    <div class="user-avatar" style="width: 80px; height: 80px; font-size: 2rem; margin: 0 auto 1rem;">
+                        ${state.user?.initials || 'JP'}
+                    </div>
+                    <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem;">
+                        ${state.user?.name || 'Juan Pérez'}
+                    </h2>
+                    <p class="text-gray-500">${state.user?.role || 'Inspector de Calidad'}</p>
+                    <p class="text-sm text-gray-400 mt-2">${state.user?.cedis || 'CEDIS Guadalajara'}</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i data-lucide="bar-chart-2" style="width:18px;height:18px;"></i>
+                    Mi Desempeño (Este mes)
+                </div>
+                <div class="card-body">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="kpi-card">
+                            <div class="kpi-value">156</div>
+                            <div class="kpi-label">Inspecciones</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-value">98.2%</div>
+                            <div class="kpi-label">Precisión</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body" style="padding: 0;">
+                    <button class="btn btn-secondary btn-block" style="justify-content: flex-start; border-radius: 0; padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <i data-lucide="settings" style="width:20px;height:20px;"></i>
+                        Configuración
+                    </button>
+                    <button class="btn btn-secondary btn-block" style="justify-content: flex-start; border-radius: 0; padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <i data-lucide="help-circle" style="width:20px;height:20px;"></i>
+                        Ayuda
+                    </button>
+                    <button class="btn btn-secondary btn-block" style="justify-content: flex-start; border-radius: 0; padding: 1rem 1.25rem; color: var(--danger);" onclick="handleLogout()">
+                        <i data-lucide="log-out" style="width:20px;height:20px;"></i>
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </main>
+        ${renderBottomNav()}
+    `;
+}
+
+function renderInspectionModal() {
+    return `
+        <div class="modal-overlay" id="inspectionModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Nueva Inspección</h2>
+                    <button class="modal-close" onclick="closeModal()">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="inspectionForm">
+                        <div class="form-group">
+                            <label class="form-label required">Tipo de Inspección</label>
+                            <select class="form-select" name="type" required>
+                                ${inspectionTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label required">CEDIS</label>
+                            <select class="form-select" name="cedis" required>
+                                ${cedisList.map(c => `<option value="${c}">${c}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label required">SKU / Código de Producto</label>
+                            <input type="text" class="form-input" name="sku" placeholder="Ej: MUE-1234567" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Producto</label>
+                            <input type="text" class="form-input" name="productName" placeholder="Se autocompleta con el SKU">
+                        </div>
+
+                        <div class="quantity-row">
+                            <div class="form-group">
+                                <label class="form-label required">Cantidad Recibida</label>
+                                <div class="quantity-input">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('received', -1)">-</button>
+                                    <input type="number" class="quantity-value" name="receivedQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('received', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Cantidad Muestreada</label>
+                                <div class="quantity-input">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('sampled', -1)">-</button>
+                                    <input type="number" class="quantity-value" name="sampledQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('sampled', 1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="quantity-row">
+                            <div class="form-group">
+                                <label class="form-label">Cantidad Rechazada</label>
+                                <div class="quantity-input">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('rejected', -1)">-</button>
+                                    <input type="number" class="quantity-value" name="rejectedQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('rejected', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Con Hallazgos</label>
+                                <div class="quantity-input">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('findings', -1)">-</button>
+                                    <input type="number" class="quantity-value" name="findingsQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('findings', 1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Hallazgos</label>
+                            <div class="checkbox-group">
+                                ${findingCategories.map(f => `
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="findings" value="${f}">
+                                        ${f}
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Evidencia Fotográfica</label>
+                            <div class="photo-grid">
+                                <div class="photo-item photo-add" onclick="capturePhoto()">
+                                    <i data-lucide="camera" style="width:24px;height:24px;"></i>
+                                    <span>Agregar</span>
+                                </div>
+                            </div>
+                            <p class="form-hint">Mínimo 3 fotos si hay hallazgos</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Comentarios</label>
+                            <textarea class="form-textarea" name="comments" placeholder="Observaciones adicionales..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" style="flex: 1;" onclick="saveDraft()">
+                        <i data-lucide="save" style="width:18px;height:18px;"></i>
+                        Guardar Borrador
+                    </button>
+                    <button class="btn btn-primary" style="flex: 1;" onclick="submitInspection()">
+                        <i data-lucide="send" style="width:18px;height:18px;"></i>
+                        Enviar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ===== EVENT HANDLERS =====
+function handleLogin(event) {
+    event.preventDefault();
+    state.user = {
+        name: 'Juan Pérez',
+        initials: 'JP',
+        email: 'inspector@coppel.com',
+        role: 'Inspector de Calidad',
+        cedis: 'CEDIS Guadalajara'
+    };
+    state.currentPage = 'dashboard';
+    state.inspections = [...mockInspections];
+    state.providers = [...mockProviders];
+    renderApp();
+    showToast('Bienvenido, Juan', 'success');
+}
+
+function handleLogout() {
+    state.user = null;
+    state.currentPage = 'login';
+    renderApp();
+    showToast('Sesión cerrada');
+}
+
+function navigate(page) {
+    state.currentPage = page;
+    renderApp();
+}
+
+function openNewInspection() {
+    const modal = document.getElementById('inspectionModal');
+    if (!modal) {
+        document.body.insertAdjacentHTML('beforeend', renderInspectionModal());
+        if (window.lucide) lucide.createIcons();
+    }
+    setTimeout(() => {
+        document.getElementById('inspectionModal').classList.add('active');
+    }, 10);
+
+    // Add checkbox toggle functionality
+    document.querySelectorAll('.checkbox-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'INPUT') {
+                const checkbox = this.querySelector('input');
+                checkbox.checked = !checkbox.checked;
+                this.classList.toggle('selected', checkbox.checked);
+            }
+        });
+    });
+}
+
+function closeModal() {
+    const modal = document.getElementById('inspectionModal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+function adjustQty(field, delta) {
+    const fieldMap = {
+        'received': 'receivedQty',
+        'sampled': 'sampledQty',
+        'rejected': 'rejectedQty',
+        'findings': 'findingsQty'
+    };
+    const input = document.querySelector(`[name="${fieldMap[field]}"]`);
+    if (input) {
+        const newValue = Math.max(0, parseInt(input.value || 0) + delta);
+        input.value = newValue;
+    }
+}
+
+function capturePhoto() {
+    showToast('Función de cámara (demo)');
+    // In a real app, this would open the camera
+}
+
+function saveDraft() {
+    showToast('Borrador guardado', 'success');
+    closeModal();
+}
+
+function submitInspection() {
+    const form = document.getElementById('inspectionForm');
+    const formData = new FormData(form);
+
+    // Validate
+    const sku = formData.get('sku');
+    const receivedQty = parseInt(formData.get('receivedQty'));
+    const sampledQty = parseInt(formData.get('sampledQty'));
+
+    if (!sku) {
+        showToast('Ingresa el SKU del producto', 'error');
+        return;
+    }
+
+    if (receivedQty <= 0) {
+        showToast('La cantidad recibida debe ser mayor a 0', 'error');
+        return;
+    }
+
+    if (sampledQty > receivedQty) {
+        showToast('La cantidad muestreada no puede ser mayor a la recibida', 'error');
+        return;
+    }
+
+    // Create inspection
+    const inspection = {
+        id: Date.now(),
+        sku: sku,
+        productName: formData.get('productName') || 'Producto ' + sku,
+        provider: 'Proveedor Demo',
+        cedis: formData.get('cedis'),
+        inspector: state.user?.name || 'Inspector',
+        type: formData.get('type'),
+        status: 'completed',
+        receivedQty: receivedQty,
+        sampledQty: sampledQty,
+        rejectedQty: parseInt(formData.get('rejectedQty')) || 0,
+        findingsQty: parseInt(formData.get('findingsQty')) || 0,
+        findings: formData.getAll('findings'),
+        photos: 0,
+        timestamp: new Date(),
+        synced: state.isOnline
+    };
+
+    mockInspections.unshift(inspection);
+
+    if (!state.isOnline) {
+        state.pendingSync++;
+    }
+
+    showToast('Inspección registrada', 'success');
+    closeModal();
+    renderApp();
+}
+
+function viewInspection(id) {
+    const inspection = mockInspections.find(i => i.id === id);
+    if (inspection) {
+        showToast(`Ver inspección ${inspection.sku}`);
+    }
+}
+
+function viewProvider(id) {
+    const provider = mockProviders.find(p => p.id === id);
+    if (provider) {
+        showToast(`Ver proveedor ${provider.name}`);
+    }
+}
+
+function showNotifications() {
+    showToast('No hay notificaciones nuevas');
+}
+
+function attachEventListeners() {
+    // Online/offline detection
+    window.addEventListener('online', () => {
+        state.isOnline = true;
+        renderApp();
+        showToast('Conexión restaurada', 'success');
+    });
+
+    window.addEventListener('offline', () => {
+        state.isOnline = false;
+        renderApp();
+        showToast('Sin conexión - Modo offline', 'error');
+    });
+}
+
+// ===== INITIALIZE =====
+document.addEventListener('DOMContentLoaded', () => {
+    renderApp();
+});
+
+// Export for global access
+window.handleLogin = handleLogin;
+window.handleLogout = handleLogout;
+window.navigate = navigate;
+window.openNewInspection = openNewInspection;
+window.closeModal = closeModal;
+window.adjustQty = adjustQty;
+window.capturePhoto = capturePhoto;
+window.saveDraft = saveDraft;
+window.submitInspection = submitInspection;
+window.viewInspection = viewInspection;
+window.viewProvider = viewProvider;
+window.showNotifications = showNotifications;

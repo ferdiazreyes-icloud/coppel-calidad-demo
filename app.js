@@ -125,17 +125,23 @@ const mockKPIs = {
 };
 
 const findingCategories = [
-    'Daño en empaque',
-    'Rayón en superficie',
-    'Pieza faltante',
-    'Daño estructural',
-    'Manchas/Suciedad',
-    'Color incorrecto',
-    'Dimensiones incorrectas',
-    'Humedad/Mojado',
-    'Tornillería incompleta',
-    'Manual faltante'
+    { name: 'Daño en empaque', severity: 'minor' },
+    { name: 'Rayón en superficie', severity: 'minor' },
+    { name: 'Pieza faltante', severity: 'major' },
+    { name: 'Daño estructural', severity: 'critical' },
+    { name: 'Manchas/Suciedad', severity: 'minor' },
+    { name: 'Color incorrecto', severity: 'major' },
+    { name: 'Dimensiones incorrectas', severity: 'major' },
+    { name: 'Humedad/Mojado', severity: 'critical' },
+    { name: 'Tornillería incompleta', severity: 'minor' },
+    { name: 'Manual faltante', severity: 'minor' }
 ];
+
+const severityConfig = {
+    critical: { label: 'Crítico', color: 'var(--danger)', bg: 'var(--danger-light)', icon: 'alert-octagon' },
+    major: { label: 'Mayor', color: 'var(--warning)', bg: 'var(--warning-light)', icon: 'alert-triangle' },
+    minor: { label: 'Menor', color: 'var(--primary)', bg: 'rgba(30, 58, 95, 0.1)', icon: 'alert-circle' }
+};
 
 const cedisList = [
     'CEDIS Guadalajara',
@@ -831,11 +837,17 @@ function renderInspectionModal() {
 
                         <div class="form-group">
                             <label class="form-label">Hallazgos</label>
+                            <div class="severity-legend">
+                                <span class="severity-tag critical"><i data-lucide="alert-octagon" style="width:10px;height:10px;"></i> Crítico</span>
+                                <span class="severity-tag major"><i data-lucide="alert-triangle" style="width:10px;height:10px;"></i> Mayor</span>
+                                <span class="severity-tag minor"><i data-lucide="alert-circle" style="width:10px;height:10px;"></i> Menor</span>
+                            </div>
                             <div class="checkbox-group">
                                 ${findingCategories.map(f => `
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="findings" value="${f}">
-                                        ${f}
+                                    <label class="checkbox-item severity-${f.severity}" data-severity="${f.severity}">
+                                        <input type="checkbox" name="findings" value="${f.name}">
+                                        <span class="severity-indicator ${f.severity}"></span>
+                                        ${f.name}
                                     </label>
                                 `).join('')}
                             </div>

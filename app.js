@@ -888,9 +888,18 @@ function showCameraModal() {
                     <!-- Preview section (hidden initially) -->
                     <div id="photoPreview" style="display: none; aspect-ratio: 4/3; position: relative;">
                         <img id="previewImage" src="" style="width: 100%; height: 100%; object-fit: cover;">
+                        <!-- Success badge -->
                         <div style="position: absolute; top: 12px; right: 12px; background: var(--success); color: white; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">
                             <i data-lucide="check" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
                             Capturada
+                        </div>
+                        <!-- Photo info overlay at bottom -->
+                        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 2rem 1rem 1rem 1rem;">
+                            <div id="previewPhotoType" style="color: white; font-weight: 600; font-size: 0.9375rem; margin-bottom: 0.25rem;"></div>
+                            <div id="previewTimestamp" style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="clock" style="width:12px;height:12px;"></i>
+                                <span></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -950,31 +959,50 @@ function simulateCapture() {
     setTimeout(() => {
         viewfinder.style.background = '';
 
-        // Generate simulated photo (placeholder with furniture-related content)
-        const photoTypes = [
-            { text: 'Vista+General', color: '3B82F6' },
-            { text: 'Detalle+Producto', color: '10B981' },
-            { text: 'Etiqueta', color: 'F59E0B' },
-            { text: 'Empaque', color: '8B5CF6' },
-            { text: 'Defecto', color: 'EF4444' },
-            { text: 'Acabado', color: 'EC4899' },
-            { text: 'Estructura', color: '06B6D4' },
-            { text: 'Ensamble', color: '84CC16' }
+        // Real furniture images from Unsplash for realistic demo
+        const furniturePhotos = [
+            { url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=600&fit=crop', type: 'Vista General - Sofá' },
+            { url: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800&h=600&fit=crop', type: 'Detalle - Silla' },
+            { url: 'https://images.unsplash.com/photo-1618220179428-22790b461013?w=800&h=600&fit=crop', type: 'Mesa Comedor' },
+            { url: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&h=600&fit=crop', type: 'Sala Completa' },
+            { url: 'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=800&h=600&fit=crop', type: 'Cama King Size' },
+            { url: 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?w=800&h=600&fit=crop', type: 'Detalle Acabado' },
+            { url: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800&h=600&fit=crop', type: 'Escritorio' },
+            { url: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=800&h=600&fit=crop', type: 'Recámara' },
+            { url: 'https://images.unsplash.com/photo-1567016432779-094069958ea5?w=800&h=600&fit=crop', type: 'Sofá Modular' },
+            { url: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=800&h=600&fit=crop', type: 'Sillón Individual' }
         ];
 
-        const photoType = photoTypes[state.capturedPhotos.length % photoTypes.length];
+        const photoData = furniturePhotos[state.capturedPhotos.length % furniturePhotos.length];
         const timestamp = Date.now();
-        const photoUrl = `https://placehold.co/800x600/${photoType.color}/white?text=${photoType.text}%0A${new Date().toLocaleTimeString('es-MX')}`;
+        const photoUrl = photoData.url;
 
         // Store temporarily for confirmation
         window.pendingPhoto = {
             url: photoUrl,
-            type: photoType.text.replace('+', ' '),
+            type: photoData.type,
             timestamp: timestamp
         };
 
         // Show preview
         previewImg.src = photoUrl;
+
+        // Update photo info overlay
+        const photoTypeEl = document.getElementById('previewPhotoType');
+        const timestampEl = document.getElementById('previewTimestamp');
+        if (photoTypeEl) photoTypeEl.textContent = photoData.type;
+        if (timestampEl) {
+            const timeStr = new Date().toLocaleString('es-MX', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            timestampEl.querySelector('span').textContent = timeStr;
+        }
+
         viewfinder.style.display = 'none';
         preview.style.display = 'block';
         captureControls.style.display = 'none';

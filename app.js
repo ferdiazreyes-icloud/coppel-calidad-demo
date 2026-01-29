@@ -1240,8 +1240,10 @@ function renderSkuList(searchValue) {
     Object.keys(categories).sort().forEach(category => {
         html += `<div class="autocomplete-category-header">${category}</div>`;
         categories[category].forEach(p => {
+            // Escape quotes in values for safety
+            const escapedSku = p.sku.replace(/'/g, "\\'");
             html += `
-                <div class="autocomplete-item" data-sku="${p.sku}">
+                <div class="autocomplete-item" data-sku="${p.sku}" onmousedown="event.preventDefault(); selectProduct('${escapedSku}');">
                     <div class="autocomplete-item-icon">
                         <i data-lucide="package" style="width:20px;height:20px;"></i>
                     </div>
@@ -1264,26 +1266,10 @@ function renderSkuList(searchValue) {
     if (window.lucide) lucide.createIcons();
 }
 
-// Initialize SKU dropdown event delegation (uses document-level delegation)
-let skuDropdownEventsInitialized = false;
-
+// SKU dropdown events initialized via inline onmousedown handlers
 function initSkuDropdownEvents() {
-    if (skuDropdownEventsInitialized) return;
-    skuDropdownEventsInitialized = true;
-
-    // Use document-level event delegation to handle clicks on autocomplete items
-    document.addEventListener('click', function(e) {
-        const item = e.target.closest('.autocomplete-item[data-sku]');
-        if (item) {
-            e.stopPropagation();
-            e.preventDefault();
-            const sku = item.dataset.sku;
-            console.log('Click on autocomplete item, SKU:', sku);
-            if (sku) {
-                selectProduct(sku);
-            }
-        }
-    }, true); // Use capture phase to handle before other listeners
+    // Events are now handled via inline onmousedown in renderSkuList
+    // This function is kept for backward compatibility
 }
 
 function highlightMatch(text, term) {

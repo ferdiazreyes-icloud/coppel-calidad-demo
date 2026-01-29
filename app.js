@@ -6,7 +6,10 @@ const state = {
     providers: [],
     isOnline: navigator.onLine,
     pendingSync: 0,
-    capturedPhotos: [] // Photos captured during current inspection form
+    capturedPhotos: [], // Photos captured during current inspection form
+    lastSyncTime: new Date(),
+    syncQueue: [], // Queue of items pending sync
+    isSyncing: false
 };
 
 // ===== MOCK DATA =====
@@ -189,6 +192,7 @@ function renderApp() {
 }
 
 function renderNavbar() {
+    const syncTimeAgo = getTimeSinceSync();
     return `
         <nav class="navbar">
             <div class="navbar-content">
@@ -201,11 +205,21 @@ function renderNavbar() {
                     <span>Coppel</span>
                 </div>
                 <div class="navbar-actions">
-                    <div class="sync-status">
-                        <span class="sync-dot ${state.isOnline ? '' : 'offline'}"></span>
-                        <span>${state.isOnline ? 'Conectado' : 'Sin conexión'}</span>
-                        ${state.pendingSync > 0 ? `<span>(${state.pendingSync} pendientes)</span>` : ''}
-                    </div>
+                    <button class="sync-status-btn ${state.isOnline ? '' : 'offline'} ${state.isSyncing ? 'syncing' : ''}" onclick="toggleOfflineMode()">
+                        <div class="sync-indicator">
+                            ${state.isSyncing ?
+                                '<i data-lucide="loader-2" class="sync-spinner" style="width:16px;height:16px;"></i>' :
+                                state.isOnline ?
+                                    '<i data-lucide="wifi" style="width:16px;height:16px;"></i>' :
+                                    '<i data-lucide="wifi-off" style="width:16px;height:16px;"></i>'
+                            }
+                        </div>
+                        <div class="sync-info">
+                            <span class="sync-status-text">${state.isSyncing ? 'Sincronizando...' : state.isOnline ? 'En línea' : 'Sin conexión'}</span>
+                            <span class="sync-time">${state.isSyncing ? '' : syncTimeAgo}</span>
+                        </div>
+                        ${state.pendingSync > 0 ? `<span class="sync-badge">${state.pendingSync}</span>` : ''}
+                    </button>
                     <button class="navbar-icon" onclick="showNotifications()">
                         <i data-lucide="bell" style="width:20px;height:20px;"></i>
                     </button>
@@ -214,6 +228,79 @@ function renderNavbar() {
             </div>
         </nav>
     `;
+}
+
+function getTimeSinceSync() {
+    const now = new Date();
+    const diff = now - state.lastSyncTime;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+
+    if (minutes < 1) return 'Sync: ahora';
+    if (minutes < 60) return `Sync: ${minutes}m`;
+    return `Sync: ${hours}h`;
+}
+
+function toggleOfflineMode() {
+    if (state.isSyncing) return;
+
+    state.isOnline = !state.isOnline;
+
+    if (state.isOnline && state.pendingSync > 0) {
+        // Simulate sync when going online
+        simulateSync();
+    } else if (!state.isOnline) {
+        showToast('📴 Modo sin conexión activado', 'default');
+    }
+
+    renderApp();
+}
+
+function simulateSync() {
+    if (state.pendingSync === 0 || state.isSyncing) return;
+
+    state.isSyncing = true;
+    renderApp();
+    showToast('🔄 Sincronizando datos...', 'default');
+
+    // Simulate sync progress
+    const totalItems = state.pendingSync;
+    let syncedItems = 0;
+
+    const syncInterval = setInterval(() => {
+        syncedItems++;
+
+        // Update inspections to synced
+        const unsyncedInspection = mockInspections.find(i => !i.synced);
+        if (unsyncedInspection) {
+            unsyncedInspection.synced = true;
+        }
+
+        if (syncedItems >= totalItems) {
+            clearInterval(syncInterval);
+            state.pendingSync = 0;
+            state.isSyncing = false;
+            state.lastSyncTime = new Date();
+            state.syncQueue = [];
+            renderApp();
+            showToast('✅ Sincronización completada', 'success');
+        }
+    }, 800);
+}
+
+function manualSync() {
+    if (!state.isOnline) {
+        showToast('Sin conexión. Los datos se sincronizarán cuando vuelvas a conectarte.', 'error');
+        return;
+    }
+
+    if (state.pendingSync > 0) {
+        simulateSync();
+    } else {
+        state.lastSyncTime = new Date();
+        renderApp();
+        showToast('Todo sincronizado', 'success');
+    }
 }
 
 function renderBottomNav() {
@@ -1495,3 +1582,5 @@ window.closeCameraModal = closeCameraModal;
 window.simulateCapture = simulateCapture;
 window.retakePhoto = retakePhoto;
 window.confirmPhoto = confirmPhoto;
+window.toggleOfflineMode = toggleOfflineMode;
+window.manualSync = manualSync;

@@ -183,6 +183,102 @@ body {
     font-size: 0.875rem;
 }
 
+/* ===== SYNC STATUS BUTTON ===== */
+.sync-status-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--border-radius);
+    color: white;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+}
+
+.sync-status-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sync-status-btn.offline {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.sync-status-btn.syncing {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.sync-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sync-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.sync-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.sync-status-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.sync-time {
+    font-size: 0.625rem;
+    opacity: 0.7;
+    line-height: 1.2;
+}
+
+.sync-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    background: var(--danger);
+    color: white;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Mobile adjustments for sync button */
+@media (max-width: 400px) {
+    .sync-status-btn {
+        padding: 0.375rem 0.5rem;
+    }
+    .sync-info {
+        display: none;
+    }
+}
+
 /* ===== PAGE CONTAINER ===== */
 .page {
     flex: 1;

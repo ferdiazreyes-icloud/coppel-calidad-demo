@@ -1119,10 +1119,13 @@ function showSkuDropdown() {
 
     skuDropdownOpen = true;
     dropdown.style.display = 'block';
-    icon.style.transform = 'rotate(180deg)';
+    if (icon) icon.style.transform = 'rotate(180deg)';
 
     // Render all products or filtered
-    renderSkuList(input.value || '');
+    renderSkuList(input ? input.value : '');
+
+    // Initialize event handlers
+    initSkuDropdownEvents();
 }
 
 function hideSkuDropdown() {
@@ -1258,17 +1261,28 @@ function renderSkuList(searchValue) {
     });
 
     list.innerHTML = html;
-
-    // Add click handlers using event delegation
-    list.querySelectorAll('.autocomplete-item[data-sku]').forEach(item => {
-        item.addEventListener('mousedown', function(e) {
-            e.preventDefault(); // Prevent input blur
-            const sku = this.dataset.sku;
-            if (sku) selectProduct(sku);
-        });
-    });
-
     if (window.lucide) lucide.createIcons();
+}
+
+// Initialize SKU dropdown event delegation (called once)
+function initSkuDropdownEvents() {
+    const list = document.getElementById('skuList');
+    if (!list || list.dataset.initialized) return;
+
+    list.dataset.initialized = 'true';
+
+    list.addEventListener('click', function(e) {
+        e.stopPropagation(); // Stop event from bubbling to document
+
+        const item = e.target.closest('.autocomplete-item[data-sku]');
+        if (item) {
+            const sku = item.dataset.sku;
+            console.log('Click on item, SKU:', sku);
+            if (sku) {
+                selectProduct(sku);
+            }
+        }
+    });
 }
 
 function highlightMatch(text, term) {
@@ -1361,8 +1375,15 @@ function clearProductInfo() {
 document.addEventListener('click', function(e) {
     const dropdown = document.getElementById('skuDropdown');
     const container = document.querySelector('.autocomplete-container');
-    if (dropdown && container && !container.contains(e.target)) {
-        hideSkuDropdown();
+
+    // Don't close if clicking inside the dropdown or container
+    if (dropdown && container) {
+        const clickedInsideDropdown = dropdown.contains(e.target);
+        const clickedInsideContainer = container.contains(e.target);
+
+        if (!clickedInsideDropdown && !clickedInsideContainer) {
+            hideSkuDropdown();
+        }
     }
 });
 

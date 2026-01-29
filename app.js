@@ -926,9 +926,9 @@ function renderInspectionModal() {
                             </p>
                         </div>
 
-                        <div class="form-group" id="productNameGroup" style="display: none;">
+                        <div class="form-group" id="productNameGroup">
                             <label class="form-label">Nombre del Producto</label>
-                            <input type="text" class="form-input product-name-selected" name="productName" id="productNameInput" readonly>
+                            <input type="text" class="form-input" name="productName" id="productNameInput" placeholder="Se completa automáticamente al seleccionar SKU" readonly>
                         </div>
 
                         <div class="form-group" id="providerInfo" style="display: none;">
@@ -1238,7 +1238,7 @@ function renderSkuList(searchValue) {
         html += `<div class="autocomplete-category-header">${category}</div>`;
         categories[category].forEach(p => {
             html += `
-                <div class="autocomplete-item" onclick="selectProduct('${p.sku}')" data-sku="${p.sku}">
+                <div class="autocomplete-item" data-sku="${p.sku}">
                     <div class="autocomplete-item-icon">
                         <i data-lucide="package" style="width:20px;height:20px;"></i>
                     </div>
@@ -1258,6 +1258,16 @@ function renderSkuList(searchValue) {
     });
 
     list.innerHTML = html;
+
+    // Add click handlers using event delegation
+    list.querySelectorAll('.autocomplete-item[data-sku]').forEach(item => {
+        item.addEventListener('mousedown', function(e) {
+            e.preventDefault(); // Prevent input blur
+            const sku = this.dataset.sku;
+            if (sku) selectProduct(sku);
+        });
+    });
+
     if (window.lucide) lucide.createIcons();
 }
 
@@ -1272,26 +1282,43 @@ function highlightMatch(text, term) {
 
 function selectProduct(sku) {
     const product = productCatalog.find(p => p.sku === sku);
-    if (!product) return;
+    if (!product) {
+        console.error('Product not found:', sku);
+        return;
+    }
+
+    console.log('Selecting product:', product);
 
     const skuInput = document.getElementById('skuInput');
-    skuInput.value = product.sku;
-    skuInput.dataset.selectedSku = product.sku;
+    if (skuInput) {
+        skuInput.value = product.sku;
+        skuInput.dataset.selectedSku = product.sku;
+    }
 
-    document.getElementById('productNameInput').value = product.name;
-    document.getElementById('productNameGroup').style.display = 'block';
+    // Set product name and add selected style
+    const productNameInput = document.getElementById('productNameInput');
+    if (productNameInput) {
+        productNameInput.value = product.name;
+        productNameInput.classList.add('product-name-selected');
+    }
 
     hideSkuDropdown();
 
     // Show product info card
-    document.getElementById('providerInfo').style.display = 'block';
-    document.getElementById('productProvider').textContent = product.provider;
-    document.getElementById('productCategory').textContent = product.category;
+    const providerInfo = document.getElementById('providerInfo');
+    const productProvider = document.getElementById('productProvider');
+    const productCategory = document.getElementById('productCategory');
+
+    if (providerInfo) providerInfo.style.display = 'block';
+    if (productProvider) productProvider.textContent = product.provider;
+    if (productCategory) productCategory.textContent = product.category;
 
     // Update hint
     const hint = document.getElementById('skuHint');
-    hint.innerHTML = '<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;color:var(--success);"></i>Producto seleccionado correctamente';
-    hint.style.color = 'var(--success)';
+    if (hint) {
+        hint.innerHTML = '<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;color:var(--success);"></i>Producto seleccionado correctamente';
+        hint.style.color = 'var(--success)';
+    }
 
     // Show clear button
     const clearBtn = document.getElementById('skuClearBtn');
@@ -1320,9 +1347,14 @@ function clearSkuInput() {
 }
 
 function clearProductInfo() {
-    document.getElementById('productNameInput').value = '';
-    document.getElementById('productNameGroup').style.display = 'none';
-    document.getElementById('providerInfo').style.display = 'none';
+    const productNameInput = document.getElementById('productNameInput');
+    if (productNameInput) {
+        productNameInput.value = '';
+        productNameInput.classList.remove('product-name-selected');
+    }
+
+    const providerInfo = document.getElementById('providerInfo');
+    if (providerInfo) providerInfo.style.display = 'none';
 }
 
 // Close dropdown when clicking outside

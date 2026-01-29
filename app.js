@@ -9,7 +9,15 @@ const state = {
     capturedPhotos: [], // Photos captured during current inspection form
     lastSyncTime: new Date(),
     syncQueue: [], // Queue of items pending sync
-    isSyncing: false
+    isSyncing: false,
+    // Filters for inspections page
+    filters: {
+        status: 'all', // all, pending, completed, rejected
+        cedis: 'all',
+        type: 'all',
+        provider: 'all',
+        search: ''
+    }
 };
 
 // ===== MOCK DATA =====
@@ -585,13 +593,16 @@ function renderInspectionItem(inspection) {
 }
 
 function renderInspectionsPage() {
+    const filteredInspections = getFilteredInspections();
+    const uniqueProviders = [...new Set(mockInspections.map(i => i.provider))];
+
     return `
         ${renderNavbar()}
         <main class="page">
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <h1 class="page-title">Inspecciones</h1>
-                    <p class="page-subtitle">${mockInspections.length} inspecciones registradas</p>
+                    <p class="page-subtitle">${filteredInspections.length} de ${mockInspections.length} inspecciones</p>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="openNewInspection()">
                     <i data-lucide="plus" style="width:18px;height:18px;"></i>
@@ -599,22 +610,139 @@ function renderInspectionsPage() {
                 </button>
             </div>
 
-            <div class="tabs">
-                <button class="tab active">Todas</button>
-                <button class="tab">Pendientes</button>
-                <button class="tab">Completadas</button>
-                <button class="tab">Rechazadas</button>
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <i data-lucide="search" style="width:18px;height:18px;color:var(--gray-400);"></i>
+                <input type="text" class="search-input" placeholder="Buscar por SKU, producto..." value="${state.filters.search}" oninput="updateFilter('search', this.value)">
+                ${state.filters.search ? `<button class="search-clear" onclick="updateFilter('search', '')"><i data-lucide="x" style="width:16px;height:16px;"></i></button>` : ''}
             </div>
 
-            <div class="inspection-list">
-                ${mockInspections.map(renderInspectionItem).join('')}
+            <!-- Status Tabs -->
+            <div class="tabs">
+                <button class="tab ${state.filters.status === 'all' ? 'active' : ''}" onclick="updateFilter('status', 'all')">
+                    Todas <span class="tab-count">${mockInspections.length}</span>
+                </button>
+                <button class="tab ${state.filters.status === 'pending' ? 'active' : ''}" onclick="updateFilter('status', 'pending')">
+                    Pendientes <span class="tab-count">${mockInspections.filter(i => i.status === 'pending').length}</span>
+                </button>
+                <button class="tab ${state.filters.status === 'completed' ? 'active' : ''}" onclick="updateFilter('status', 'completed')">
+                    Completadas <span class="tab-count">${mockInspections.filter(i => i.status === 'completed').length}</span>
+                </button>
+                <button class="tab ${state.filters.status === 'rejected' ? 'active' : ''}" onclick="updateFilter('status', 'rejected')">
+                    Rechazadas <span class="tab-count">${mockInspections.filter(i => i.status === 'rejected').length}</span>
+                </button>
             </div>
+
+            <!-- Filter Dropdowns -->
+            <div class="filter-row">
+                <div class="filter-item">
+                    <select class="filter-select" onchange="updateFilter('cedis', this.value)">
+                        <option value="all" ${state.filters.cedis === 'all' ? 'selected' : ''}>Todos los CEDIS</option>
+                        ${cedisList.map(c => `<option value="${c}" ${state.filters.cedis === c ? 'selected' : ''}>${c.replace('CEDIS ', '')}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <select class="filter-select" onchange="updateFilter('type', this.value)">
+                        <option value="all" ${state.filters.type === 'all' ? 'selected' : ''}>Todos los tipos</option>
+                        ${inspectionTypes.map(t => `<option value="${t}" ${state.filters.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <select class="filter-select" onchange="updateFilter('provider', this.value)">
+                        <option value="all" ${state.filters.provider === 'all' ? 'selected' : ''}>Todos los proveedores</option>
+                        ${uniqueProviders.map(p => `<option value="${p}" ${state.filters.provider === p ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Active Filters -->
+            ${hasActiveFilters() ? `
+            <div class="active-filters">
+                <span class="active-filters-label">Filtros activos:</span>
+                ${state.filters.status !== 'all' ? `<span class="filter-chip" onclick="updateFilter('status', 'all')">${state.filters.status === 'pending' ? 'Pendientes' : state.filters.status === 'completed' ? 'Completadas' : 'Rechazadas'} <i data-lucide="x" style="width:12px;height:12px;"></i></span>` : ''}
+                ${state.filters.cedis !== 'all' ? `<span class="filter-chip" onclick="updateFilter('cedis', 'all')">${state.filters.cedis.replace('CEDIS ', '')} <i data-lucide="x" style="width:12px;height:12px;"></i></span>` : ''}
+                ${state.filters.type !== 'all' ? `<span class="filter-chip" onclick="updateFilter('type', 'all')">${state.filters.type} <i data-lucide="x" style="width:12px;height:12px;"></i></span>` : ''}
+                ${state.filters.provider !== 'all' ? `<span class="filter-chip" onclick="updateFilter('provider', 'all')">${state.filters.provider} <i data-lucide="x" style="width:12px;height:12px;"></i></span>` : ''}
+                ${state.filters.search ? `<span class="filter-chip" onclick="updateFilter('search', '')">"${state.filters.search}" <i data-lucide="x" style="width:12px;height:12px;"></i></span>` : ''}
+                <button class="clear-all-filters" onclick="clearAllFilters()">Limpiar todos</button>
+            </div>
+            ` : ''}
+
+            <!-- Results -->
+            ${filteredInspections.length > 0 ? `
+                <div class="inspection-list">
+                    ${filteredInspections.map(renderInspectionItem).join('')}
+                </div>
+            ` : `
+                <div class="empty-state">
+                    <i data-lucide="search-x" style="width:48px;height:48px;color:var(--gray-300);"></i>
+                    <h3>No se encontraron inspecciones</h3>
+                    <p>Intenta ajustar los filtros o realizar una nueva búsqueda</p>
+                    <button class="btn btn-secondary" onclick="clearAllFilters()">Limpiar filtros</button>
+                </div>
+            `}
         </main>
         ${renderBottomNav()}
         <button class="fab" onclick="openNewInspection()">
             <i data-lucide="plus" style="width:24px;height:24px;"></i>
         </button>
     `;
+}
+
+function getFilteredInspections() {
+    return mockInspections.filter(inspection => {
+        // Status filter
+        if (state.filters.status !== 'all' && inspection.status !== state.filters.status) {
+            return false;
+        }
+        // CEDIS filter
+        if (state.filters.cedis !== 'all' && inspection.cedis !== state.filters.cedis) {
+            return false;
+        }
+        // Type filter
+        if (state.filters.type !== 'all' && inspection.type !== state.filters.type) {
+            return false;
+        }
+        // Provider filter
+        if (state.filters.provider !== 'all' && inspection.provider !== state.filters.provider) {
+            return false;
+        }
+        // Search filter
+        if (state.filters.search) {
+            const search = state.filters.search.toLowerCase();
+            const matchesSku = inspection.sku.toLowerCase().includes(search);
+            const matchesProduct = inspection.productName.toLowerCase().includes(search);
+            const matchesProvider = inspection.provider.toLowerCase().includes(search);
+            if (!matchesSku && !matchesProduct && !matchesProvider) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
+
+function updateFilter(filterKey, value) {
+    state.filters[filterKey] = value;
+    renderApp();
+}
+
+function hasActiveFilters() {
+    return state.filters.status !== 'all' ||
+           state.filters.cedis !== 'all' ||
+           state.filters.type !== 'all' ||
+           state.filters.provider !== 'all' ||
+           state.filters.search !== '';
+}
+
+function clearAllFilters() {
+    state.filters = {
+        status: 'all',
+        cedis: 'all',
+        type: 'all',
+        provider: 'all',
+        search: ''
+    };
+    renderApp();
 }
 
 function renderProvidersPage() {
@@ -2003,3 +2131,5 @@ window.selectProduct = selectProduct;
 window.closeProviderDetail = closeProviderDetail;
 window.exportProviderReport = exportProviderReport;
 window.sendProviderAlert = sendProviderAlert;
+window.updateFilter = updateFilter;
+window.clearAllFilters = clearAllFilters;

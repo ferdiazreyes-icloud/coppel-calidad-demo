@@ -120,6 +120,30 @@ const inspectionTypes = [
     'Movimiento'
 ];
 
+// ===== PRODUCT CATALOG (Mock SKU Database) =====
+const productCatalog = [
+    { sku: 'MUE-2847593', name: 'Sala Modular 3 Piezas - Gris Oxford', provider: 'Muebles del Norte SA', category: 'Salas' },
+    { sku: 'MUE-1938472', name: 'Comedor 6 Sillas - Madera Natural', provider: 'Carpintería Moderna', category: 'Comedores' },
+    { sku: 'MUE-7462918', name: 'Recámara King Size - Cerezo', provider: 'Muebles Premium MX', category: 'Recámaras' },
+    { sku: 'MUE-3847291', name: 'Sofá Cama Individual - Azul Marino', provider: 'Diseños Hogar SA', category: 'Salas' },
+    { sku: 'MUE-9182736', name: 'Mesa de Centro Cristal Templado', provider: 'Muebles del Norte SA', category: 'Mesas' },
+    { sku: 'MUE-5647382', name: 'Librero 5 Niveles - Nogal', provider: 'Carpintería Moderna', category: 'Estantes' },
+    { sku: 'MUE-8273645', name: 'Escritorio Ejecutivo L - Blanco', provider: 'Fábrica de Muebles MX', category: 'Oficina' },
+    { sku: 'MUE-4738291', name: 'Cama Matrimonial con Cajones', provider: 'Muebles Premium MX', category: 'Recámaras' },
+    { sku: 'MUE-6192837', name: 'Sillón Reclinable - Café', provider: 'Diseños Hogar SA', category: 'Salas' },
+    { sku: 'MUE-2938475', name: 'Comoda 6 Cajones - Blanco', provider: 'Fábrica de Muebles MX', category: 'Recámaras' },
+    { sku: 'MUE-7364528', name: 'Barra Desayunador 4 Bancos', provider: 'Carpintería Moderna', category: 'Comedores' },
+    { sku: 'MUE-1847362', name: 'Ropero 3 Puertas Espejo', provider: 'Muebles del Norte SA', category: 'Recámaras' },
+    { sku: 'MUE-5928374', name: 'Esquinero TV 55 Pulgadas', provider: 'Diseños Hogar SA', category: 'Muebles TV' },
+    { sku: 'MUE-8475629', name: 'Tocador con Banco - Rosa', provider: 'Muebles Premium MX', category: 'Recámaras' },
+    { sku: 'MUE-3746182', name: 'Mesa Lateral Set de 2', provider: 'Fábrica de Muebles MX', category: 'Mesas' },
+    { sku: 'MUE-6283947', name: 'Cabecera Capitoneada Queen', provider: 'Muebles del Norte SA', category: 'Recámaras' },
+    { sku: 'MUE-9473625', name: 'Silla Comedor Tapizada x4', provider: 'Carpintería Moderna', category: 'Comedores' },
+    { sku: 'MUE-2746839', name: 'Vitrina Cristal 2 Puertas', provider: 'Diseños Hogar SA', category: 'Estantes' },
+    { sku: 'MUE-8362719', name: 'Litera Individual Madera', provider: 'Muebles Premium MX', category: 'Recámaras' },
+    { sku: 'MUE-4628193', name: 'Centro Entretenimiento 180cm', provider: 'Fábrica de Muebles MX', category: 'Muebles TV' }
+];
+
 // ===== HELPER FUNCTIONS =====
 function formatTime(date) {
     const now = new Date();
@@ -707,12 +731,29 @@ function renderInspectionModal() {
 
                         <div class="form-group">
                             <label class="form-label required">SKU / Código de Producto</label>
-                            <input type="text" class="form-input" name="sku" placeholder="Ej: MUE-1234567" required>
+                            <div class="autocomplete-container">
+                                <input type="text" class="form-input" name="sku" id="skuInput" placeholder="Ej: MUE-1234567" autocomplete="off" required oninput="handleSkuInput(this.value)">
+                                <div class="autocomplete-dropdown" id="skuDropdown"></div>
+                            </div>
+                            <p class="form-hint" id="skuHint">Escribe para buscar en el catálogo</p>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Nombre del Producto</label>
-                            <input type="text" class="form-input" name="productName" placeholder="Se autocompleta con el SKU">
+                            <input type="text" class="form-input" name="productName" id="productNameInput" placeholder="Se autocompleta con el SKU" readonly>
+                        </div>
+
+                        <div class="form-group" id="providerInfo" style="display: none;">
+                            <div class="product-info-card">
+                                <div class="product-info-header">
+                                    <i data-lucide="package-check" style="width:16px;height:16px;color:var(--success);"></i>
+                                    <span>Producto encontrado en catálogo</span>
+                                </div>
+                                <div class="product-info-details">
+                                    <div><strong>Proveedor:</strong> <span id="productProvider">-</span></div>
+                                    <div><strong>Categoría:</strong> <span id="productCategory">-</span></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="quantity-row">
@@ -871,6 +912,103 @@ function adjustQty(field, delta) {
         input.value = newValue;
     }
 }
+
+// ===== SKU AUTOCOMPLETE =====
+function handleSkuInput(value) {
+    const dropdown = document.getElementById('skuDropdown');
+    const hint = document.getElementById('skuHint');
+
+    if (!value || value.length < 2) {
+        dropdown.style.display = 'none';
+        hint.innerHTML = 'Escribe para buscar en el catálogo';
+        hint.style.color = '';
+        clearProductInfo();
+        return;
+    }
+
+    const searchTerm = value.toUpperCase();
+    const matches = productCatalog.filter(p =>
+        p.sku.toUpperCase().includes(searchTerm) ||
+        p.name.toUpperCase().includes(searchTerm)
+    ).slice(0, 5);
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = `
+            <div class="autocomplete-item no-results">
+                <i data-lucide="search-x" style="width:16px;height:16px;"></i>
+                <span>No se encontró en catálogo</span>
+            </div>
+        `;
+        dropdown.style.display = 'block';
+        hint.innerHTML = '<i data-lucide="alert-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>SKU no encontrado - verificar manualmente';
+        hint.style.color = 'var(--warning)';
+        if (window.lucide) lucide.createIcons();
+        clearProductInfo();
+        return;
+    }
+
+    dropdown.innerHTML = matches.map(p => `
+        <div class="autocomplete-item" onclick="selectProduct('${p.sku}')">
+            <div class="autocomplete-item-main">
+                <span class="autocomplete-sku">${highlightMatch(p.sku, searchTerm)}</span>
+                <span class="autocomplete-name">${highlightMatch(p.name, searchTerm)}</span>
+            </div>
+            <div class="autocomplete-item-meta">
+                <span>${p.provider}</span>
+                <span class="autocomplete-category">${p.category}</span>
+            </div>
+        </div>
+    `).join('');
+
+    dropdown.style.display = 'block';
+    hint.innerHTML = `${matches.length} resultado${matches.length > 1 ? 's' : ''} encontrado${matches.length > 1 ? 's' : ''}`;
+    hint.style.color = 'var(--success)';
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function highlightMatch(text, term) {
+    const index = text.toUpperCase().indexOf(term);
+    if (index === -1) return text;
+    return text.substring(0, index) +
+           '<mark>' + text.substring(index, index + term.length) + '</mark>' +
+           text.substring(index + term.length);
+}
+
+function selectProduct(sku) {
+    const product = productCatalog.find(p => p.sku === sku);
+    if (!product) return;
+
+    document.getElementById('skuInput').value = product.sku;
+    document.getElementById('productNameInput').value = product.name;
+    document.getElementById('skuDropdown').style.display = 'none';
+
+    // Show product info card
+    document.getElementById('providerInfo').style.display = 'block';
+    document.getElementById('productProvider').textContent = product.provider;
+    document.getElementById('productCategory').textContent = product.category;
+
+    // Update hint
+    const hint = document.getElementById('skuHint');
+    hint.innerHTML = '<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>Producto seleccionado del catálogo';
+    hint.style.color = 'var(--success)';
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function clearProductInfo() {
+    document.getElementById('productNameInput').value = '';
+    document.getElementById('providerInfo').style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('skuDropdown');
+    const input = document.getElementById('skuInput');
+    if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+        dropdown.style.display = 'none';
+    }
+});
 
 // ===== PHOTO CAPTURE SIMULATION =====
 function renderPhotoGrid() {
@@ -1584,3 +1722,5 @@ window.retakePhoto = retakePhoto;
 window.confirmPhoto = confirmPhoto;
 window.toggleOfflineMode = toggleOfflineMode;
 window.manualSync = manualSync;
+window.handleSkuInput = handleSkuInput;
+window.selectProduct = selectProduct;

@@ -1008,7 +1008,13 @@ body {
 }
 
 .modal-body {
-    padding: 1.25rem;
+    padding: 1rem;
+}
+
+@media (min-width: 400px) {
+    .modal-body {
+        padding: 1.25rem;
+    }
 }
 
 .modal-footer {
@@ -1024,8 +1030,19 @@ body {
 /* ===== QUANTITY INPUT ===== */
 .quantity-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.quantity-row .form-group {
+    min-width: 0;
+}
+
+.quantity-row .form-label {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .quantity-input {
@@ -1037,8 +1054,8 @@ body {
 }
 
 .quantity-btn {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border: none;
     background: var(--gray-100);
     color: var(--gray-600);
@@ -1047,20 +1064,35 @@ body {
     align-items: center;
     justify-content: center;
     transition: var(--transition);
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .quantity-btn:hover {
     background: var(--gray-200);
 }
 
+.quantity-btn:active {
+    background: var(--gray-300);
+}
+
 .quantity-value {
     flex: 1;
+    min-width: 0;
     text-align: center;
     font-size: 1rem;
     font-weight: 600;
     border: none;
     outline: none;
     font-family: inherit;
+    -moz-appearance: textfield;
+}
+
+.quantity-value::-webkit-outer-spin-button,
+.quantity-value::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* ===== CHECKBOX GROUP ===== */
@@ -1096,6 +1128,57 @@ body {
 }
 
 /* ===== RESPONSIVE ===== */
+
+/* Small mobile adjustments */
+@media (max-width: 374px) {
+    .modal-header {
+        padding: 0.875rem 1rem;
+    }
+
+    .modal-body {
+        padding: 0.875rem;
+    }
+
+    .modal-footer {
+        padding: 0.875rem 1rem;
+    }
+
+    .quantity-row {
+        gap: 0.5rem;
+    }
+
+    .quantity-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .form-label {
+        font-size: 0.8125rem;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.9375rem;
+    }
+
+    .checkbox-item {
+        padding: 0.375rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+
+    .photo-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.375rem;
+    }
+
+    .btn {
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
 @media (min-width: 768px) {
     .page {
         padding: 1.5rem 2rem;
@@ -1121,6 +1204,10 @@ body {
 
     .quantity-row {
         grid-template-columns: repeat(4, 1fr);
+    }
+
+    .quantity-row .form-label {
+        font-size: 0.875rem;
     }
 }
 

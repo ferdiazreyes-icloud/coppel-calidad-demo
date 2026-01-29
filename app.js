@@ -630,18 +630,18 @@ function renderInspectionModal() {
 
                         <div class="quantity-row">
                             <div class="form-group">
-                                <label class="form-label required">Cantidad Recibida</label>
+                                <label class="form-label required">Recibidos</label>
                                 <div class="quantity-input">
-                                    <button type="button" class="quantity-btn" onclick="adjustQty('received', -1)">-</button>
-                                    <input type="number" class="quantity-value" name="receivedQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('received', -1)">−</button>
+                                    <input type="number" class="quantity-value" name="receivedQty" value="0" min="0" inputmode="numeric">
                                     <button type="button" class="quantity-btn" onclick="adjustQty('received', 1)">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label required">Cantidad Muestreada</label>
+                                <label class="form-label required">Muestreados</label>
                                 <div class="quantity-input">
-                                    <button type="button" class="quantity-btn" onclick="adjustQty('sampled', -1)">-</button>
-                                    <input type="number" class="quantity-value" name="sampledQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('sampled', -1)">−</button>
+                                    <input type="number" class="quantity-value" name="sampledQty" value="0" min="0" inputmode="numeric">
                                     <button type="button" class="quantity-btn" onclick="adjustQty('sampled', 1)">+</button>
                                 </div>
                             </div>
@@ -649,18 +649,18 @@ function renderInspectionModal() {
 
                         <div class="quantity-row">
                             <div class="form-group">
-                                <label class="form-label">Cantidad Rechazada</label>
+                                <label class="form-label">Rechazados</label>
                                 <div class="quantity-input">
-                                    <button type="button" class="quantity-btn" onclick="adjustQty('rejected', -1)">-</button>
-                                    <input type="number" class="quantity-value" name="rejectedQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('rejected', -1)">−</button>
+                                    <input type="number" class="quantity-value" name="rejectedQty" value="0" min="0" inputmode="numeric">
                                     <button type="button" class="quantity-btn" onclick="adjustQty('rejected', 1)">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Con Hallazgos</label>
                                 <div class="quantity-input">
-                                    <button type="button" class="quantity-btn" onclick="adjustQty('findings', -1)">-</button>
-                                    <input type="number" class="quantity-value" name="findingsQty" value="0" min="0">
+                                    <button type="button" class="quantity-btn" onclick="adjustQty('findings', -1)">−</button>
+                                    <input type="number" class="quantity-value" name="findingsQty" value="0" min="0" inputmode="numeric">
                                     <button type="button" class="quantity-btn" onclick="adjustQty('findings', 1)">+</button>
                                 </div>
                             </div>

@@ -71,11 +71,46 @@ const mockInspections = [
 ];
 
 const mockProviders = [
-    { id: 1, name: 'Muebles del Norte SA', code: 'PRV-001', score: 92, trend: 'up', inspections: 145, defectRate: 2.1, riskLevel: 'low' },
-    { id: 2, name: 'Carpintería Moderna', code: 'PRV-002', score: 78, trend: 'down', inspections: 89, defectRate: 8.5, riskLevel: 'medium' },
-    { id: 3, name: 'Muebles Premium MX', code: 'PRV-003', score: 45, trend: 'down', inspections: 67, defectRate: 18.2, riskLevel: 'high' },
-    { id: 4, name: 'Diseños Hogar SA', code: 'PRV-004', score: 88, trend: 'up', inspections: 203, defectRate: 3.8, riskLevel: 'low' },
-    { id: 5, name: 'Fábrica de Muebles MX', code: 'PRV-005', score: 71, trend: 'stable', inspections: 112, defectRate: 9.1, riskLevel: 'medium' }
+    {
+        id: 1, name: 'Muebles del Norte SA', code: 'PRV-001', score: 92, trend: 'up', inspections: 145, defectRate: 2.1, riskLevel: 'low',
+        contact: { name: 'Carlos Mendoza', email: 'cmendoza@mueblesn.com', phone: '+52 33 1234 5678' },
+        defectsByCategory: { 'Daño empaque': 12, 'Rayones': 8, 'Piezas faltantes': 3, 'Otros': 2 },
+        trendData: [2.5, 2.3, 2.1, 2.4, 2.0, 2.1, 1.9],
+        topIssues: ['Empaque insuficiente en esquinas', 'Rayones menores en superficies'],
+        responseTime: 2.3
+    },
+    {
+        id: 2, name: 'Carpintería Moderna', code: 'PRV-002', score: 78, trend: 'down', inspections: 89, defectRate: 8.5, riskLevel: 'medium',
+        contact: { name: 'Ana García', email: 'agarcia@carpmod.mx', phone: '+52 81 9876 5432' },
+        defectsByCategory: { 'Daño estructural': 18, 'Dimensiones': 12, 'Acabados': 15, 'Otros': 8 },
+        trendData: [6.2, 7.1, 7.8, 8.0, 8.2, 8.5, 9.1],
+        topIssues: ['Variación en dimensiones', 'Acabado irregular en barniz', 'Uniones débiles'],
+        responseTime: 4.5
+    },
+    {
+        id: 3, name: 'Muebles Premium MX', code: 'PRV-003', score: 45, trend: 'down', inspections: 67, defectRate: 18.2, riskLevel: 'high',
+        contact: { name: 'Roberto Silva', email: 'rsilva@premium.mx', phone: '+52 55 5555 1234' },
+        defectsByCategory: { 'Daño estructural': 35, 'Humedad': 22, 'Piezas faltantes': 18, 'Color incorrecto': 15, 'Otros': 12 },
+        trendData: [12.5, 14.2, 15.8, 16.5, 17.2, 18.2, 19.5],
+        topIssues: ['Problemas graves de humedad', 'Fallas estructurales recurrentes', 'Piezas faltantes en kits', 'Inconsistencia en colores'],
+        responseTime: 8.2
+    },
+    {
+        id: 4, name: 'Diseños Hogar SA', code: 'PRV-004', score: 88, trend: 'up', inspections: 203, defectRate: 3.8, riskLevel: 'low',
+        contact: { name: 'María López', email: 'mlopez@disenoshogar.com', phone: '+52 33 8765 4321' },
+        defectsByCategory: { 'Daño empaque': 15, 'Manchas': 8, 'Manual faltante': 5, 'Otros': 4 },
+        trendData: [5.2, 4.8, 4.5, 4.2, 4.0, 3.8, 3.5],
+        topIssues: ['Ocasionales manchas de fábrica'],
+        responseTime: 1.8
+    },
+    {
+        id: 5, name: 'Fábrica de Muebles MX', code: 'PRV-005', score: 71, trend: 'stable', inspections: 112, defectRate: 9.1, riskLevel: 'medium',
+        contact: { name: 'Juan Ramírez', email: 'jramirez@fabmuebles.mx', phone: '+52 81 1111 2222' },
+        defectsByCategory: { 'Tornillería': 22, 'Acabados': 18, 'Dimensiones': 12, 'Otros': 8 },
+        trendData: [9.0, 9.2, 8.8, 9.1, 9.0, 9.1, 9.2],
+        topIssues: ['Tornillería incompleta frecuente', 'Variaciones en acabado'],
+        responseTime: 3.5
+    }
 ];
 
 const mockKPIs = {
@@ -1669,8 +1704,237 @@ function editInspection(id) {
 function viewProvider(id) {
     const provider = mockProviders.find(p => p.id === id);
     if (provider) {
-        showToast(`Ver proveedor ${provider.name}`);
+        openProviderDetail(provider);
     }
+}
+
+function openProviderDetail(provider) {
+    const existingModal = document.getElementById('providerDetailModal');
+    if (existingModal) existingModal.remove();
+
+    const riskColors = {
+        low: { bg: 'var(--success-light)', text: 'var(--success)', label: 'BAJO' },
+        medium: { bg: 'var(--warning-light)', text: 'var(--warning)', label: 'MEDIO' },
+        high: { bg: 'var(--danger-light)', text: 'var(--danger)', label: 'ALTO' }
+    };
+    const risk = riskColors[provider.riskLevel];
+
+    // Generate defects pie chart data
+    const defectEntries = Object.entries(provider.defectsByCategory);
+    const totalDefects = defectEntries.reduce((sum, [_, v]) => sum + v, 0);
+    const defectColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+    // Generate trend sparkline
+    const maxTrend = Math.max(...provider.trendData);
+    const trendPoints = provider.trendData.map((v, i) =>
+        `${(i / (provider.trendData.length - 1)) * 100},${100 - (v / maxTrend) * 80}`
+    ).join(' ');
+
+    // Get recent inspections for this provider
+    const providerInspections = mockInspections.filter(i => i.provider === provider.name).slice(0, 3);
+
+    const modalHTML = `
+        <div class="modal-overlay active" id="providerDetailModal" onclick="closeProviderDetail(event)">
+            <div class="modal" onclick="event.stopPropagation()" style="max-height: 95vh;">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white;">
+                    <div>
+                        <h2 class="modal-title" style="color: white;">${provider.name}</h2>
+                        <p style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.25rem;">${provider.code}</p>
+                    </div>
+                    <button class="modal-close" onclick="closeProviderDetail()" style="background: rgba(255,255,255,0.2); color: white;">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body" style="padding: 0;">
+                    <!-- Score & Risk Banner -->
+                    <div style="padding: 1.25rem; background: var(--gray-50); display: flex; justify-content: space-around; text-align: center; border-bottom: 1px solid var(--gray-200);">
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700; color: ${provider.score >= 80 ? 'var(--success)' : provider.score >= 60 ? 'var(--warning)' : 'var(--danger)'};">
+                                ${provider.score}
+                                ${provider.trend === 'up' ? '<i data-lucide="trending-up" style="width:20px;height:20px;"></i>' :
+                                  provider.trend === 'down' ? '<i data-lucide="trending-down" style="width:20px;height:20px;"></i>' :
+                                  '<i data-lucide="minus" style="width:20px;height:20px;"></i>'}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--gray-500);">Puntaje</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--gray-700);">${provider.defectRate}%</div>
+                            <div style="font-size: 0.75rem; color: var(--gray-500);">Tasa Defectos</div>
+                        </div>
+                        <div>
+                            <span style="display: inline-block; padding: 0.5rem 1rem; background: ${risk.bg}; color: ${risk.text}; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
+                                ${risk.label}
+                            </span>
+                            <div style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem;">Riesgo</div>
+                        </div>
+                    </div>
+
+                    <!-- KPIs Row -->
+                    <div style="padding: 1rem 1.25rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; border-bottom: 1px solid var(--gray-200);">
+                        <div style="text-align: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius);">
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${provider.inspections}</div>
+                            <div style="font-size: 0.6875rem; color: var(--gray-500);">Inspecciones</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius);">
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${provider.responseTime}d</div>
+                            <div style="font-size: 0.6875rem; color: var(--gray-500);">Tiempo Resp.</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius);">
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">${totalDefects}</div>
+                            <div style="font-size: 0.6875rem; color: var(--gray-500);">Hallazgos Total</div>
+                        </div>
+                    </div>
+
+                    <!-- Trend Chart -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="trending-up" style="width:16px;height:16px;"></i>
+                            Tendencia Tasa de Defectos (7 días)
+                        </h3>
+                        <div style="height: 80px; position: relative; background: var(--gray-50); border-radius: var(--border-radius); padding: 0.5rem;">
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <polyline
+                                    points="${trendPoints}"
+                                    fill="none"
+                                    stroke="${provider.trend === 'down' ? 'var(--danger)' : provider.trend === 'up' ? 'var(--success)' : 'var(--primary)'}"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                                ${provider.trendData.map((v, i) => `
+                                    <circle
+                                        cx="${(i / (provider.trendData.length - 1)) * 100}"
+                                        cy="${100 - (v / maxTrend) * 80}"
+                                        r="3"
+                                        fill="${provider.trend === 'down' ? 'var(--danger)' : provider.trend === 'up' ? 'var(--success)' : 'var(--primary)'}"
+                                    />
+                                `).join('')}
+                            </svg>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.625rem; color: var(--gray-400); margin-top: 0.25rem;">
+                                <span>Hace 7d</span>
+                                <span>Hoy</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Defects Breakdown -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="pie-chart" style="width:16px;height:16px;"></i>
+                            Defectos por Categoría
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            ${defectEntries.map(([category, count], i) => `
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="width: 12px; height: 12px; border-radius: 2px; background: ${defectColors[i % defectColors.length]};"></div>
+                                    <span style="flex: 1; font-size: 0.8125rem;">${category}</span>
+                                    <div style="width: 100px; height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${(count / totalDefects) * 100}%; background: ${defectColors[i % defectColors.length]};"></div>
+                                    </div>
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--gray-600); min-width: 40px; text-align: right;">${count} (${Math.round((count / totalDefects) * 100)}%)</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Top Issues -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="alert-triangle" style="width:16px;height:16px;color:var(--warning);"></i>
+                            Problemas Principales
+                        </h3>
+                        <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                            ${provider.topIssues.map(issue => `
+                                <li style="font-size: 0.8125rem; color: var(--gray-700);">${issue}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <!-- Contact Info -->
+                    <div style="padding: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="user" style="width:16px;height:16px;"></i>
+                            Contacto
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8125rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="user" style="width:14px;height:14px;color:var(--gray-400);"></i>
+                                <span>${provider.contact.name}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="mail" style="width:14px;height:14px;color:var(--gray-400);"></i>
+                                <a href="mailto:${provider.contact.email}" style="color: var(--primary);">${provider.contact.email}</a>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="phone" style="width:14px;height:14px;color:var(--gray-400);"></i>
+                                <span>${provider.contact.phone}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Inspections -->
+                    ${providerInspections.length > 0 ? `
+                    <div style="padding: 1.25rem;">
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i>
+                            Inspecciones Recientes
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            ${providerInspections.map(insp => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--gray-50); border-radius: var(--border-radius); cursor: pointer;" onclick="closeProviderDetail(); viewInspection(${insp.id});">
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 0.8125rem;">${insp.sku}</div>
+                                        <div style="font-size: 0.75rem; color: var(--gray-500);">${insp.productName}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span class="inspection-badge ${insp.status === 'completed' ? 'badge-success' : insp.status === 'rejected' ? 'badge-danger' : 'badge-warning'}" style="font-size: 0.6875rem;">
+                                            ${insp.status === 'completed' ? 'Completada' : insp.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
+                                        </span>
+                                        <div style="font-size: 0.6875rem; color: var(--gray-400); margin-top: 0.25rem;">${formatTime(insp.timestamp)}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="modal-footer" style="flex-wrap: wrap; gap: 0.5rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="exportProviderReport(${provider.id})" style="flex: 1;">
+                        <i data-lucide="download" style="width:16px;height:16px;"></i>
+                        Exportar PDF
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="sendProviderAlert(${provider.id})" style="flex: 1;">
+                        <i data-lucide="send" style="width:16px;height:16px;"></i>
+                        Enviar Alerta
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeProviderDetail(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('providerDetailModal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+function exportProviderReport(id) {
+    const provider = mockProviders.find(p => p.id === id);
+    showToast(`Generando reporte de ${provider?.name}...`, 'success');
+}
+
+function sendProviderAlert(id) {
+    const provider = mockProviders.find(p => p.id === id);
+    showToast(`Alerta enviada a ${provider?.contact.email}`, 'success');
 }
 
 function showNotifications() {
@@ -1724,3 +1988,6 @@ window.toggleOfflineMode = toggleOfflineMode;
 window.manualSync = manualSync;
 window.handleSkuInput = handleSkuInput;
 window.selectProduct = selectProduct;
+window.closeProviderDetail = closeProviderDetail;
+window.exportProviderReport = exportProviderReport;
+window.sendProviderAlert = sendProviderAlert;

@@ -1264,25 +1264,26 @@ function renderSkuList(searchValue) {
     if (window.lucide) lucide.createIcons();
 }
 
-// Initialize SKU dropdown event delegation (called once)
+// Initialize SKU dropdown event delegation (uses document-level delegation)
+let skuDropdownEventsInitialized = false;
+
 function initSkuDropdownEvents() {
-    const list = document.getElementById('skuList');
-    if (!list || list.dataset.initialized) return;
+    if (skuDropdownEventsInitialized) return;
+    skuDropdownEventsInitialized = true;
 
-    list.dataset.initialized = 'true';
-
-    list.addEventListener('click', function(e) {
-        e.stopPropagation(); // Stop event from bubbling to document
-
+    // Use document-level event delegation to handle clicks on autocomplete items
+    document.addEventListener('click', function(e) {
         const item = e.target.closest('.autocomplete-item[data-sku]');
         if (item) {
+            e.stopPropagation();
+            e.preventDefault();
             const sku = item.dataset.sku;
-            console.log('Click on item, SKU:', sku);
+            console.log('Click on autocomplete item, SKU:', sku);
             if (sku) {
                 selectProduct(sku);
             }
         }
-    });
+    }, true); // Use capture phase to handle before other listeners
 }
 
 function highlightMatch(text, term) {
@@ -2301,6 +2302,7 @@ function attachEventListeners() {
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', () => {
     renderApp();
+    initSkuDropdownEvents(); // Initialize SKU autocomplete event handlers
 });
 
 // Export for global access

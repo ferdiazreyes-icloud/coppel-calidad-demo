@@ -901,15 +901,34 @@ function renderInspectionModal() {
                         <div class="form-group">
                             <label class="form-label required">SKU / Código de Producto</label>
                             <div class="autocomplete-container">
-                                <input type="text" class="form-input" name="sku" id="skuInput" placeholder="Ej: MUE-1234567" autocomplete="off" required oninput="handleSkuInput(this.value)">
-                                <div class="autocomplete-dropdown" id="skuDropdown"></div>
+                                <div class="sku-input-wrapper">
+                                    <i data-lucide="search" class="sku-search-icon"></i>
+                                    <input type="text" class="form-input sku-input-field" name="sku" id="skuInput" placeholder="Buscar SKU o nombre de producto..." autocomplete="off" required
+                                        oninput="handleSkuInput(this.value)"
+                                        onfocus="showSkuDropdown()"
+                                        onclick="showSkuDropdown()">
+                                    <button type="button" class="sku-clear-btn" id="skuClearBtn" onclick="clearSkuInput()" style="display: none;">
+                                        <i data-lucide="x" style="width:16px;height:16px;"></i>
+                                    </button>
+                                    <i data-lucide="chevron-down" class="sku-dropdown-icon" id="skuDropdownIcon" onclick="toggleSkuDropdown()"></i>
+                                </div>
+                                <div class="autocomplete-dropdown" id="skuDropdown">
+                                    <div class="autocomplete-header">
+                                        <span class="autocomplete-title">Catálogo de productos</span>
+                                        <span class="autocomplete-count" id="skuResultCount">${productCatalog.length} productos</span>
+                                    </div>
+                                    <div class="autocomplete-list" id="skuList"></div>
+                                </div>
                             </div>
-                            <p class="form-hint" id="skuHint">Escribe para buscar en el catálogo</p>
+                            <p class="form-hint" id="skuHint">
+                                <i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                                Selecciona un producto del catálogo
+                            </p>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="productNameGroup" style="display: none;">
                             <label class="form-label">Nombre del Producto</label>
-                            <input type="text" class="form-input" name="productName" id="productNameInput" placeholder="Se autocompleta con el SKU" readonly>
+                            <input type="text" class="form-input product-name-selected" name="productName" id="productNameInput" readonly>
                         </div>
 
                         <div class="form-group" id="providerInfo" style="display: none;">
@@ -1089,60 +1108,161 @@ function adjustQty(field, delta) {
 }
 
 // ===== SKU AUTOCOMPLETE =====
+let skuDropdownOpen = false;
+
+function showSkuDropdown() {
+    const dropdown = document.getElementById('skuDropdown');
+    const input = document.getElementById('skuInput');
+    const icon = document.getElementById('skuDropdownIcon');
+
+    if (!dropdown) return;
+
+    skuDropdownOpen = true;
+    dropdown.style.display = 'block';
+    icon.style.transform = 'rotate(180deg)';
+
+    // Render all products or filtered
+    renderSkuList(input.value || '');
+}
+
+function hideSkuDropdown() {
+    const dropdown = document.getElementById('skuDropdown');
+    const icon = document.getElementById('skuDropdownIcon');
+
+    if (!dropdown) return;
+
+    skuDropdownOpen = false;
+    dropdown.style.display = 'none';
+    if (icon) icon.style.transform = '';
+}
+
+function toggleSkuDropdown() {
+    if (skuDropdownOpen) {
+        hideSkuDropdown();
+    } else {
+        showSkuDropdown();
+        document.getElementById('skuInput').focus();
+    }
+}
+
 function handleSkuInput(value) {
     const dropdown = document.getElementById('skuDropdown');
+    const clearBtn = document.getElementById('skuClearBtn');
+
+    // Show/hide clear button
+    if (clearBtn) {
+        clearBtn.style.display = value ? 'flex' : 'none';
+    }
+
+    // Show dropdown and render filtered list
+    if (!skuDropdownOpen) {
+        showSkuDropdown();
+    } else {
+        renderSkuList(value);
+    }
+
+    // Clear product info when typing
+    if (value !== document.getElementById('skuInput').dataset.selectedSku) {
+        clearProductInfo();
+    }
+}
+
+function renderSkuList(searchValue) {
+    const list = document.getElementById('skuList');
+    const countEl = document.getElementById('skuResultCount');
     const hint = document.getElementById('skuHint');
 
-    if (!value || value.length < 2) {
-        dropdown.style.display = 'none';
-        hint.innerHTML = 'Escribe para buscar en el catálogo';
-        hint.style.color = '';
-        clearProductInfo();
-        return;
+    if (!list) return;
+
+    const searchTerm = (searchValue || '').toUpperCase().trim();
+
+    let matches;
+    if (!searchTerm) {
+        // Show all products grouped by category
+        matches = [...productCatalog];
+    } else {
+        // Filter by search term
+        matches = productCatalog.filter(p =>
+            p.sku.toUpperCase().includes(searchTerm) ||
+            p.name.toUpperCase().includes(searchTerm) ||
+            p.provider.toUpperCase().includes(searchTerm) ||
+            p.category.toUpperCase().includes(searchTerm)
+        );
     }
 
-    const searchTerm = value.toUpperCase();
-    const matches = productCatalog.filter(p =>
-        p.sku.toUpperCase().includes(searchTerm) ||
-        p.name.toUpperCase().includes(searchTerm)
-    ).slice(0, 5);
+    // Update count
+    if (countEl) {
+        countEl.textContent = searchTerm
+            ? `${matches.length} de ${productCatalog.length}`
+            : `${productCatalog.length} productos`;
+    }
+
+    // Update hint
+    if (hint) {
+        if (searchTerm && matches.length === 0) {
+            hint.innerHTML = '<i data-lucide="alert-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;color:var(--warning);"></i>No encontrado - puedes ingresar SKU manualmente';
+            hint.style.color = 'var(--warning)';
+        } else if (searchTerm) {
+            hint.innerHTML = `<i data-lucide="filter" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>${matches.length} producto${matches.length !== 1 ? 's' : ''} coincide${matches.length !== 1 ? 'n' : ''}`;
+            hint.style.color = 'var(--primary)';
+        } else {
+            hint.innerHTML = '<i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>Selecciona un producto del catálogo';
+            hint.style.color = '';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
 
     if (matches.length === 0) {
-        dropdown.innerHTML = `
-            <div class="autocomplete-item no-results">
-                <i data-lucide="search-x" style="width:16px;height:16px;"></i>
-                <span>No se encontró en catálogo</span>
+        list.innerHTML = `
+            <div class="autocomplete-empty">
+                <i data-lucide="package-x" style="width:32px;height:32px;"></i>
+                <p>No se encontraron productos</p>
+                <span>Intenta con otro término o ingresa el SKU manualmente</span>
             </div>
         `;
-        dropdown.style.display = 'block';
-        hint.innerHTML = '<i data-lucide="alert-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>SKU no encontrado - verificar manualmente';
-        hint.style.color = 'var(--warning)';
         if (window.lucide) lucide.createIcons();
-        clearProductInfo();
         return;
     }
 
-    dropdown.innerHTML = matches.map(p => `
-        <div class="autocomplete-item" onclick="selectProduct('${p.sku}')">
-            <div class="autocomplete-item-main">
-                <span class="autocomplete-sku">${highlightMatch(p.sku, searchTerm)}</span>
-                <span class="autocomplete-name">${highlightMatch(p.name, searchTerm)}</span>
-            </div>
-            <div class="autocomplete-item-meta">
-                <span>${p.provider}</span>
-                <span class="autocomplete-category">${p.category}</span>
-            </div>
-        </div>
-    `).join('');
+    // Group by category for better organization
+    const categories = {};
+    matches.forEach(p => {
+        if (!categories[p.category]) {
+            categories[p.category] = [];
+        }
+        categories[p.category].push(p);
+    });
 
-    dropdown.style.display = 'block';
-    hint.innerHTML = `${matches.length} resultado${matches.length > 1 ? 's' : ''} encontrado${matches.length > 1 ? 's' : ''}`;
-    hint.style.color = 'var(--success)';
+    let html = '';
+    Object.keys(categories).sort().forEach(category => {
+        html += `<div class="autocomplete-category-header">${category}</div>`;
+        categories[category].forEach(p => {
+            html += `
+                <div class="autocomplete-item" onclick="selectProduct('${p.sku}')" data-sku="${p.sku}">
+                    <div class="autocomplete-item-icon">
+                        <i data-lucide="package" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="autocomplete-item-content">
+                        <div class="autocomplete-item-main">
+                            <span class="autocomplete-sku">${searchTerm ? highlightMatch(p.sku, searchTerm) : p.sku}</span>
+                            <span class="autocomplete-name">${searchTerm ? highlightMatch(p.name, searchTerm) : p.name}</span>
+                        </div>
+                        <div class="autocomplete-item-meta">
+                            <span class="autocomplete-provider">${searchTerm ? highlightMatch(p.provider, searchTerm) : p.provider}</span>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" class="autocomplete-item-arrow"></i>
+                </div>
+            `;
+        });
+    });
 
+    list.innerHTML = html;
     if (window.lucide) lucide.createIcons();
 }
 
 function highlightMatch(text, term) {
+    if (!term) return text;
     const index = text.toUpperCase().indexOf(term);
     if (index === -1) return text;
     return text.substring(0, index) +
@@ -1154,9 +1274,14 @@ function selectProduct(sku) {
     const product = productCatalog.find(p => p.sku === sku);
     if (!product) return;
 
-    document.getElementById('skuInput').value = product.sku;
+    const skuInput = document.getElementById('skuInput');
+    skuInput.value = product.sku;
+    skuInput.dataset.selectedSku = product.sku;
+
     document.getElementById('productNameInput').value = product.name;
-    document.getElementById('skuDropdown').style.display = 'none';
+    document.getElementById('productNameGroup').style.display = 'block';
+
+    hideSkuDropdown();
 
     // Show product info card
     document.getElementById('providerInfo').style.display = 'block';
@@ -1165,23 +1290,47 @@ function selectProduct(sku) {
 
     // Update hint
     const hint = document.getElementById('skuHint');
-    hint.innerHTML = '<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>Producto seleccionado del catálogo';
+    hint.innerHTML = '<i data-lucide="check-circle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;color:var(--success);"></i>Producto seleccionado correctamente';
     hint.style.color = 'var(--success)';
+
+    // Show clear button
+    const clearBtn = document.getElementById('skuClearBtn');
+    if (clearBtn) clearBtn.style.display = 'flex';
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function clearSkuInput() {
+    const skuInput = document.getElementById('skuInput');
+    skuInput.value = '';
+    delete skuInput.dataset.selectedSku;
+
+    document.getElementById('skuClearBtn').style.display = 'none';
+    clearProductInfo();
+
+    // Reset hint
+    const hint = document.getElementById('skuHint');
+    hint.innerHTML = '<i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i>Selecciona un producto del catálogo';
+    hint.style.color = '';
+
+    skuInput.focus();
+    showSkuDropdown();
 
     if (window.lucide) lucide.createIcons();
 }
 
 function clearProductInfo() {
     document.getElementById('productNameInput').value = '';
+    document.getElementById('productNameGroup').style.display = 'none';
     document.getElementById('providerInfo').style.display = 'none';
 }
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function(e) {
     const dropdown = document.getElementById('skuDropdown');
-    const input = document.getElementById('skuInput');
-    if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
-        dropdown.style.display = 'none';
+    const container = document.querySelector('.autocomplete-container');
+    if (dropdown && container && !container.contains(e.target)) {
+        hideSkuDropdown();
     }
 });
 
@@ -2128,6 +2277,10 @@ window.toggleOfflineMode = toggleOfflineMode;
 window.manualSync = manualSync;
 window.handleSkuInput = handleSkuInput;
 window.selectProduct = selectProduct;
+window.showSkuDropdown = showSkuDropdown;
+window.hideSkuDropdown = hideSkuDropdown;
+window.toggleSkuDropdown = toggleSkuDropdown;
+window.clearSkuInput = clearSkuInput;
 window.closeProviderDetail = closeProviderDetail;
 window.exportProviderReport = exportProviderReport;
 window.sendProviderAlert = sendProviderAlert;
